@@ -1,4 +1,5 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import { Link } from "react-router-dom";
 import { ShoppingCart, X } from "lucide-react";
 import { Button } from "./ui/button";
@@ -6,7 +7,7 @@ import { Button } from "./ui/button";
 export function LoginPromptModal({ isOpen, onClose }) {
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 px-4">
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
         <div className="flex items-start justify-between gap-4">
@@ -46,6 +47,7 @@ export function LoginPromptModal({ isOpen, onClose }) {
           </Link>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

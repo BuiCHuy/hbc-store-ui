@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff, ShoppingBag, Check } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -10,7 +10,7 @@ import { useAuth } from "../contexts/AuthContext";
 
 export function Register() {
   const navigate = useNavigate();
-  const { registerCustomer } = useAuth();
+  const { registerCustomer, loginWithGoogle } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -21,6 +21,61 @@ export function Register() {
     confirmPassword: "",
     agreeToTerms: false,
   });
+  const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+  const googleButtonRef = useRef(null);
+
+  useEffect(() => {
+    if (!googleClientId || !googleButtonRef.current) return;
+
+    const initGoogle = () => {
+      if (!window.google?.accounts?.id) return;
+      window.google.accounts.id.initialize({
+        client_id: googleClientId,
+        callback: async (response) => {
+          const token = response?.credential;
+          if (!token) {
+            toast.error("Đăng ký Google thất bại");
+            return;
+          }
+          const success = await loginWithGoogle(token);
+          if (success) {
+            toast.success("Đăng ký Google thành công!");
+            setTimeout(() => navigate("/"), 300);
+          } else {
+            toast.error("Đăng ký Google thất bại");
+          }
+        },
+      });
+
+      googleButtonRef.current.innerHTML = "";
+      window.google.accounts.id.renderButton(googleButtonRef.current, {
+        type: "standard",
+        shape: "rectangular",
+        theme: "outline",
+        text: "signup_with",
+        size: "large",
+        width: 320,
+      });
+    };
+
+    if (window.google?.accounts?.id) {
+      initGoogle();
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.onload = initGoogle;
+    document.body.appendChild(script);
+
+    return () => {
+      if (script.parentNode) {
+        script.parentNode.removeChild(script);
+      }
+    };
+  }, [googleClientId, loginWithGoogle, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -281,14 +336,11 @@ export function Register() {
               </div>
             </div>
 
-            <div className="mt-6 grid grid-cols-2 gap-4">
-              <Button type="button" variant="outline" className="h-12">
-                Google
-              </Button>
-              <Button type="button" variant="outline" className="h-12">
-                Facebook
-              </Button>
-            </div>
+            {googleClientId ? (
+              <div className="mt-6 flex justify-center">
+                <div ref={googleButtonRef} />
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
