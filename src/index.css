@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+html {
+  overflow-x: hidden;
+  overflow-y: scroll;
+  scrollbar-gutter: stable;
+}
+
+body {
+  min-width: 320px;
+  overflow-x: hidden;
+}
+
+html body[data-scroll-locked],
+html[data-scroll-locked] body,
+html[data-scroll-locked] {
+  margin-right: 0 !important;
+  padding-right: 0 !important;
+  overflow-y: scroll !important;
+}
+
+.with-scroll-bars-hidden.with-scroll-bars-hidden {
+  overflow-y: scroll !important;
+  padding-right: 0 !important;
+  scrollbar-gutter: stable !important;
+}
+
+.right-scroll-bar-position.right-scroll-bar-position {
+  right: 0 !important;
+}
+
+.width-before-scroll-bar.width-before-scroll-bar {
+  margin-right: 0 !important;
+}
+
+[data-radix-popper-content-wrapper] {
+  z-index: 100 !important;
+}
+
+.user-container {
+  width: 100%;
+  max-width: 1200px;
+  margin-inline: auto;
+  padding-inline: 0.75rem;
+}
+
+@media (min-width: 768px) {
+  .user-container {
+    padding-inline: 1rem;
+  }
+}
