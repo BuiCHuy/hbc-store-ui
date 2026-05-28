@@ -254,6 +254,11 @@ export async function createCoupon(coupon) {
   return normalizeCoupon(data);
 }
 
+export async function updateCoupon(id, coupon) {
+  const data = await apiPut(`/coupons/${id}`, toCouponPayload(coupon));
+  return normalizeCoupon(data);
+}
+
 export async function deleteCoupon(id) {
   return apiDelete(`/coupons/${id}`);
 }

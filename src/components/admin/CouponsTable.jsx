@@ -40,7 +40,7 @@ function getCouponDisplayStatus(coupon) {
   return "active";
 }
 
-export function CouponsTable({ coupons = [], isLoading = false, onDeleteCoupon }) {
+export function CouponsTable({ coupons = [], isLoading = false, onDeleteCoupon, onEditCoupon }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [deletingCoupon, setDeletingCoupon] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -195,7 +195,7 @@ export function CouponsTable({ coupons = [], isLoading = false, onDeleteCoupon }
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-500 hover:bg-purple-50 hover:text-purple-600">
+                        <Button variant="ghost" size="sm" className="h-8 w-8 p-0 text-gray-500 hover:bg-purple-50 hover:text-purple-600" onClick={() => onEditCoupon?.(coupon)}>
                           <Edit className="h-4 w-4" />
                         </Button>
                         <Button

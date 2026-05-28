@@ -26,6 +26,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../../components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../../components/ui/alert-dialog";
 import AddProductModal from "../../components/admin/AddProductModal";
 import {
   createProduct,
@@ -83,6 +93,7 @@ export function AdminProducts() {
   const [isAddProductModalOpen, setIsAddProductModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [viewingProduct, setViewingProduct] = useState(null);
+  const [deletingProduct, setDeletingProduct] = useState(null);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState("all");
@@ -241,6 +252,12 @@ export function AdminProducts() {
     } catch (error) {
       toast.error("Không thể xóa sản phẩm", { description: error.message });
     }
+  };
+
+  const confirmDeleteProduct = async () => {
+    if (!deletingProduct) return;
+    await handleDeleteProduct(deletingProduct.id);
+    setDeletingProduct(null);
   };
 
   return (
@@ -404,7 +421,7 @@ export function AdminProducts() {
                             variant="ghost"
                             size="icon"
                             className="h-8 w-8 text-gray-500 hover:bg-red-50 hover:text-red-600"
-                            onClick={() => handleDeleteProduct(product.id)}
+                            onClick={() => setDeletingProduct(product)}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -529,6 +546,23 @@ export function AdminProducts() {
           )}
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={Boolean(deletingProduct)} onOpenChange={(open) => !open && setDeletingProduct(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xác nhận ẩn sản phẩm?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Sản phẩm "{deletingProduct?.name}" sẽ chuyển sang trạng thái đã ẩn.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-gray-300 text-gray-700 hover:bg-gray-100">Hủy</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteProduct} className="bg-red-600 text-white hover:bg-red-700">
+              Xác nhận
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   );
 }

@@ -19,6 +19,16 @@ import {
   TableRow,
 } from "../../components/ui/table";
 import { AddBrandModal } from "../../components/admin/AddBrandModal";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../../components/ui/alert-dialog";
 import { createBrand, deleteBrand, getBrands, updateBrand } from "../../hooks/useCatalog";
 
 export function AdminBrands() {
@@ -27,6 +37,7 @@ export function AdminBrands() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAddBrandModalOpen, setIsAddBrandModalOpen] = useState(false);
   const [editingBrand, setEditingBrand] = useState(null);
+  const [deletingBrand, setDeletingBrand] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
@@ -127,6 +138,12 @@ export function AdminBrands() {
     }
   };
 
+  const confirmDeleteBrand = async () => {
+    if (!deletingBrand) return;
+    await handleDeleteBrand(deletingBrand.id);
+    setDeletingBrand(null);
+  };
+
   return (
     <main className="p-8">
       <div className="mb-8 flex items-center justify-between">
@@ -221,7 +238,7 @@ export function AdminBrands() {
                         <Button variant="ghost" size="icon" onClick={() => setEditingBrand(brand)}>
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleDeleteBrand(brand.id)}>
+                        <Button variant="ghost" size="icon" onClick={() => setDeletingBrand(brand)}>
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
@@ -264,6 +281,22 @@ export function AdminBrands() {
           submitLabel="Cập nhật hãng"
         />
       )}
+      <AlertDialog open={Boolean(deletingBrand)} onOpenChange={(open) => !open && setDeletingBrand(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xác nhận ẩn hãng?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Hãng "{deletingBrand?.name}" sẽ chuyển sang trạng thái đã ẩn.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-gray-300 text-gray-700 hover:bg-gray-100">Hủy</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteBrand} className="bg-red-600 text-white hover:bg-red-700">
+              Xác nhận
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   );
 }

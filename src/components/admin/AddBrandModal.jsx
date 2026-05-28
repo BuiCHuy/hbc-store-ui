@@ -7,6 +7,16 @@ import {
   DialogDescription,
   DialogFooter,
 } from "../ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../ui/alert-dialog";
 import { Button } from "../ui/button";
 import { Label } from "../ui/label";
 import { Input } from "../ui/input";
@@ -30,6 +40,7 @@ export function AddBrandModal({
   });
   const [errors, setErrors] = useState({});
   const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -40,11 +51,13 @@ export function AddBrandModal({
       description: initialData?.description || "",
     });
     setErrors({});
+    setShowConfirmDialog(false);
   }, [isOpen, initialData]);
 
   const handleClose = () => {
     setFormData({ name: "", logoUrl: "", country: "", description: "" });
     setErrors({});
+    setShowConfirmDialog(false);
     onClose();
   };
 
@@ -54,7 +67,12 @@ export function AddBrandModal({
       setErrors({ name: "Vui lòng nhập tên hãng" });
       return;
     }
+    setShowConfirmDialog(true);
+  };
+
+  const handleConfirmSave = () => {
     onSave(formData);
+    setShowConfirmDialog(false);
     handleClose();
   };
 
@@ -172,6 +190,23 @@ export function AddBrandModal({
           </DialogFooter>
         </form>
       </DialogContent>
+
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xác nhận lưu hãng</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bạn muốn lưu hãng <strong>{formData.name}</strong>?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-gray-300 text-gray-700 hover:bg-gray-100">Hủy</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmSave} className="bg-blue-600 text-white hover:bg-blue-700">
+              Xác nhận
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

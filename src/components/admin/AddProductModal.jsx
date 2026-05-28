@@ -7,6 +7,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../ui/alert-dialog";
 import { Button } from "../ui/button";
 import { Label } from "../ui/label";
 import { Input } from "../ui/input";
@@ -50,6 +60,7 @@ function AddProductModal({
   const [errors, setErrors] = useState({});
   const [isUploadingThumbnail, setIsUploadingThumbnail] = useState(false);
   const [uploadingGalleryIndex, setUploadingGalleryIndex] = useState(null);
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -91,6 +102,7 @@ function AddProductModal({
       });
     }
     setErrors({});
+    setShowConfirmDialog(false);
   }, [isOpen, initialData]);
 
   const validate = () => {
@@ -109,6 +121,7 @@ function AddProductModal({
   const resetAndClose = () => {
     if (isSubmitting) return;
     setErrors({});
+    setShowConfirmDialog(false);
     onClose();
   };
 
@@ -202,33 +215,42 @@ function AddProductModal({
     });
   };
 
-  const handleSubmit = async (event) => {
+  const buildPayload = () => {
+    const normalizedGallery = formData.galleryUrls.map((url) => url.trim()).filter(Boolean);
+    const thumbnail = formData.imageUrl.trim();
+    const imageUrls =
+      thumbnail && !normalizedGallery.includes(thumbnail)
+        ? [thumbnail, ...normalizedGallery]
+        : normalizedGallery;
+    const attributes = formData.attributes
+      .map((item) => ({
+        name: (item.name || "").trim(),
+        value: (item.value || "").trim(),
+      }))
+      .filter((item) => item.name && item.value);
+
+    return {
+      ...formData,
+      price: String(formData.price),
+      stock: String(formData.stock),
+      imageUrls,
+      attributes,
+    };
+  };
+
+  const handleSubmit = (event) => {
     event.preventDefault();
     if (!validate() || isSubmitting) return;
-    try {
-      const normalizedGallery = formData.galleryUrls.map((url) => url.trim()).filter(Boolean);
-      const thumbnail = formData.imageUrl.trim();
-      const imageUrls =
-        thumbnail && !normalizedGallery.includes(thumbnail)
-          ? [thumbnail, ...normalizedGallery]
-          : normalizedGallery;
-      const attributes = formData.attributes
-        .map((item) => ({
-          name: (item.name || "").trim(),
-          value: (item.value || "").trim(),
-        }))
-        .filter((item) => item.name && item.value);
+    setShowConfirmDialog(true);
+  };
 
-      await onSave({
-        ...formData,
-        price: String(formData.price),
-        stock: String(formData.stock),
-        imageUrls,
-        attributes,
-      });
+  const handleConfirmSave = async () => {
+    try {
+      await onSave(buildPayload());
+      setShowConfirmDialog(false);
       resetAndClose();
     } catch {
-      // lỗi hiển thị ở component cha
+      // error is handled in parent
     }
   };
 
@@ -464,6 +486,28 @@ function AddProductModal({
           </DialogFooter>
         </form>
       </DialogContent>
+
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xác nhận lưu sản phẩm</AlertDialogTitle>
+            <AlertDialogDescription>
+              Bạn muốn lưu sản phẩm <strong>{formData.name || "mới"}</strong>?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-gray-300 text-gray-700 hover:bg-gray-100">
+              Hủy
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmSave}
+              className="bg-blue-600 text-white hover:bg-blue-700"
+            >
+              Xác nhận
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

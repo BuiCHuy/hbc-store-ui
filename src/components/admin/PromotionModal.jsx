@@ -8,6 +8,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from "../ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../ui/alert-dialog";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
@@ -37,12 +47,14 @@ export function PromotionModal({
 }) {
   const [formData, setFormData] = useState(emptyForm);
   const [errors, setErrors] = useState({});
+  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const isEdit = Boolean(promotion);
 
   useEffect(() => {
     if (!promotion) {
       setFormData(emptyForm);
       setErrors({});
+      setShowConfirmDialog(false);
       return;
     }
 
@@ -59,6 +71,7 @@ export function PromotionModal({
       target_id: String(promotion.target_ids?.[0] ?? ""),
     });
     setErrors({});
+    setShowConfirmDialog(false);
   }, [promotion, isOpen]);
 
   const targetOptions = useMemo(() => {
@@ -95,29 +108,36 @@ export function PromotionModal({
     return Object.keys(nextErrors).length === 0;
   };
 
+  const buildPayload = () => ({
+    ...promotion,
+    name: formData.name.trim(),
+    description: formData.description.trim(),
+    discount_type: formData.discount_type,
+    discount_value: Number(formData.discount_value),
+    start_date: formData.start_date,
+    end_date: formData.end_date,
+    status: formData.status,
+    priority: Number(formData.priority || 0),
+    target_type: formData.target_type,
+    target_ids: [Number(formData.target_id)],
+    sold_count: promotion?.sold_count ?? 0,
+  });
+
   const handleSubmit = (event) => {
     event.preventDefault();
     if (!validate()) return;
+    setShowConfirmDialog(true);
+  };
 
-    onSave({
-      ...promotion,
-      name: formData.name.trim(),
-      description: formData.description.trim(),
-      discount_type: formData.discount_type,
-      discount_value: Number(formData.discount_value),
-      start_date: formData.start_date,
-      end_date: formData.end_date,
-      status: formData.status,
-      priority: Number(formData.priority || 0),
-      target_type: formData.target_type,
-      target_ids: [Number(formData.target_id)],
-      sold_count: promotion?.sold_count ?? 0,
-    });
+  const handleConfirmSave = () => {
+    onSave(buildPayload());
+    setShowConfirmDialog(false);
   };
 
   const handleClose = () => {
     setFormData(emptyForm);
     setErrors({});
+    setShowConfirmDialog(false);
     onClose();
   };
 
@@ -218,6 +238,32 @@ export function PromotionModal({
           </DialogFooter>
         </form>
       </DialogContent>
+
+      <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {isEdit ? "Xác nhận cập nhật khuyến mãi" : "Xác nhận tạo khuyến mãi"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {isEdit
+                ? `Bạn muốn cập nhật chương trình "${formData.name}"?`
+                : `Bạn muốn tạo chương trình "${formData.name}"?`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-gray-300 text-gray-700 hover:bg-gray-100">
+              Hủy
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmSave}
+              className="bg-gradient-to-r from-purple-600 to-blue-600 text-white hover:from-purple-700 hover:to-blue-700"
+            >
+              Xác nhận
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

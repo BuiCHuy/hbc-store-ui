@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -33,7 +33,14 @@ import {
   TrendingDown,
 } from "lucide-react";
 
-export function AddCouponModal({ isOpen, onClose, onSave }) {
+export function AddCouponModal({
+  isOpen,
+  onClose,
+  onSave,
+  initialData = null,
+  title = "Tạo mã giảm giá mới",
+  submitLabel = "Kích hoạt mã giảm giá",
+}) {
   const [formData, setFormData] = useState({
     code: "",
     discountType: "",
@@ -46,6 +53,35 @@ export function AddCouponModal({ isOpen, onClose, onSave }) {
   });
   const [errors, setErrors] = useState({});
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (!initialData) {
+      setFormData({
+        code: "",
+        discountType: "",
+        discountValue: "",
+        minOrderValue: "",
+        maxDiscount: "",
+        usageLimit: "",
+        startDate: "",
+        endDate: "",
+      });
+    } else {
+      setFormData({
+        code: initialData.code || "",
+        discountType: initialData.discount_type || "",
+        discountValue: String(initialData.discount_value ?? ""),
+        minOrderValue: String(initialData.min_order_value ?? ""),
+        maxDiscount: initialData.max_discount_amount == null ? "" : String(initialData.max_discount_amount),
+        usageLimit: initialData.usage_limit == null ? "" : String(initialData.usage_limit),
+        startDate: initialData.start_date ? new Date(initialData.start_date).toISOString().slice(0, 10) : "",
+        endDate: initialData.end_date ? new Date(initialData.end_date).toISOString().slice(0, 10) : "",
+      });
+    }
+    setErrors({});
+    setShowConfirmDialog(false);
+  }, [isOpen, initialData]);
 
   const validateForm = () => {
     const newErrors = {};
@@ -129,6 +165,7 @@ export function AddCouponModal({ isOpen, onClose, onSave }) {
       endDate: "",
     });
     setErrors({});
+    setShowConfirmDialog(false);
     onClose();
   };
 
@@ -150,10 +187,10 @@ export function AddCouponModal({ isOpen, onClose, onSave }) {
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-2xl font-bold text-gray-900">
             <Sparkles className="h-6 w-6 text-purple-600" />
-            Tạo mã giảm giá mới
+            {title}
           </DialogTitle>
           <DialogDescription className="text-sm text-gray-600">
-            Tạo mã khuyến mãi để thu hút khách hàng và tăng doanh số.
+            Thiết lập thông tin mã giảm giá.
           </DialogDescription>
         </DialogHeader>
 
@@ -361,7 +398,7 @@ export function AddCouponModal({ isOpen, onClose, onSave }) {
             </Button>
             <Button type="submit" className="h-11 bg-gradient-to-r from-purple-600 to-blue-600 px-8 text-white">
               <Sparkles className="mr-2 h-4 w-4" />
-              Kích hoạt mã giảm giá
+              {submitLabel}
             </Button>
           </DialogFooter>
         </form>
@@ -372,7 +409,7 @@ export function AddCouponModal({ isOpen, onClose, onSave }) {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-xl font-bold text-gray-900">
               <AlertCircle className="h-6 w-6 text-purple-600" />
-              Xác nhận kích hoạt mã giảm giá
+              {initialData ? "Xác nhận cập nhật mã giảm giá" : "Xác nhận kích hoạt mã giảm giá"}
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="mt-2 space-y-3 text-sm text-gray-700">
@@ -390,8 +427,11 @@ export function AddCouponModal({ isOpen, onClose, onSave }) {
           </AlertDialogHeader>
 
           <AlertDialogFooter className="gap-2 pt-4 sm:gap-3">
-            <AlertDialogCancel className="h-11 px-6">Hủy bỏ</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmSave} className="h-11 px-8">
+            <AlertDialogCancel className="h-11 border-gray-300 px-6 text-gray-700 hover:bg-gray-100">Hủy bỏ</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmSave}
+              className="h-11 bg-gradient-to-r from-purple-600 to-blue-600 px-8 text-white hover:from-purple-700 hover:to-blue-700"
+            >
               Xác nhận
             </AlertDialogAction>
           </AlertDialogFooter>

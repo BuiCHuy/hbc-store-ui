@@ -19,6 +19,16 @@ import {
   TableRow,
 } from "../../components/ui/table";
 import { AddCategoryModal } from "../../components/admin/AddCategoryModal";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../../components/ui/alert-dialog";
 import { createCategory, deleteCategory, getCategories, updateCategory } from "../../hooks/useCatalog";
 
 export function AdminCategories() {
@@ -27,6 +37,7 @@ export function AdminCategories() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
+  const [deletingCategory, setDeletingCategory] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
@@ -120,6 +131,12 @@ export function AdminCategories() {
     } catch (error) {
       toast.error("Không thể xóa danh mục", { description: error.message });
     }
+  };
+
+  const confirmDeleteCategory = async () => {
+    if (!deletingCategory) return;
+    await handleDeleteCategory(deletingCategory.id);
+    setDeletingCategory(null);
   };
 
   const handleEditCategory = async (categoryData) => {
@@ -221,7 +238,7 @@ export function AdminCategories() {
                     <TableCell>
                       <div className="flex justify-end gap-1">
                         <Button variant="ghost" size="icon" onClick={() => setEditingCategory(category)}><Edit className="h-4 w-4" /></Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleDeleteCategory(category.id)}><Trash2 className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => setDeletingCategory(category)}><Trash2 className="h-4 w-4" /></Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -262,6 +279,22 @@ export function AdminCategories() {
           submitLabel="Cập nhật danh mục"
         />
       )}
+      <AlertDialog open={Boolean(deletingCategory)} onOpenChange={(open) => !open && setDeletingCategory(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Xác nhận ẩn danh mục?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Danh mục "{deletingCategory?.name}" sẽ chuyển sang trạng thái đã ẩn.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-gray-300 text-gray-700 hover:bg-gray-100">Hủy</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteCategory} className="bg-red-600 text-white hover:bg-red-700">
+              Xác nhận
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   );
 }

@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Download, Mail, Phone, Plus, Search, Shield, User } from "lucide-react";
+import { Download, Mail, Phone, Search, Shield, User } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
@@ -18,8 +18,17 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/table";
-import { AddUserModal } from "../../components/admin/AddUserModal";
-import { createUser, deleteUser, getUsers, updateUserStatus } from "../../services/adminApi";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "../../components/ui/alert-dialog";
+import { deleteUser, getUsers, updateUserStatus } from "../../services/adminApi";
 
 const formatDate = (dateString) => {
   if (!dateString) return "N/A";
@@ -36,10 +45,10 @@ export function AdminUsers() {
   const PAGE_SIZE = 10;
   const [users, setUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isAddUserModalOpen, setIsAddUserModalOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
+  const [pendingUserAction, setPendingUserAction] = useState(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -64,20 +73,22 @@ export function AdminUsers() {
 
   const filteredUsers = useMemo(() => {
     const keyword = searchTerm.trim().toLowerCase();
-    return users.filter((user) => {
-      const matchSearch =
-        !keyword ||
-        (user.full_name || "").toLowerCase().includes(keyword) ||
-        (user.email || "").toLowerCase().includes(keyword) ||
-        (user.phone_number || "").toLowerCase().includes(keyword);
-      const matchRole = roleFilter === "all" || user.role === roleFilter;
-      return matchSearch && matchRole;
-    }).sort((a, b) => {
-      const aTime = new Date(a.created_at || a.createdAt || 0).getTime();
-      const bTime = new Date(b.created_at || b.createdAt || 0).getTime();
-      if (aTime && bTime && aTime !== bTime) return bTime - aTime;
-      return Number(b.id || 0) - Number(a.id || 0);
-    });
+    return users
+      .filter((user) => {
+        const matchSearch =
+          !keyword ||
+          (user.full_name || "").toLowerCase().includes(keyword) ||
+          (user.email || "").toLowerCase().includes(keyword) ||
+          (user.phone_number || "").toLowerCase().includes(keyword);
+        const matchRole = roleFilter === "all" || user.role === roleFilter;
+        return matchSearch && matchRole;
+      })
+      .sort((a, b) => {
+        const aTime = new Date(a.created_at || a.createdAt || 0).getTime();
+        const bTime = new Date(b.created_at || b.createdAt || 0).getTime();
+        if (aTime && bTime && aTime !== bTime) return bTime - aTime;
+        return Number(b.id || 0) - Number(a.id || 0);
+      });
   }, [users, searchTerm, roleFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredUsers.length / PAGE_SIZE));
@@ -100,16 +111,6 @@ export function AdminUsers() {
     const banned = users.filter((user) => user.status === "BANNED").length;
     return { total: users.length, admins, customers, banned };
   }, [users]);
-
-  const handleAddUser = async (userData) => {
-    try {
-      const savedUser = await createUser(userData);
-      setUsers((currentUsers) => [savedUser, ...currentUsers]);
-      toast.success("Thêm người dùng thành công");
-    } catch (error) {
-      toast.error("Không thể thêm người dùng", { description: error.message });
-    }
-  };
 
   const handleDeleteUser = async (id) => {
     try {
@@ -137,6 +138,16 @@ export function AdminUsers() {
     }
   };
 
+  const confirmUserAction = async () => {
+    if (!pendingUserAction?.user) return;
+    if (pendingUserAction.type === "lock") {
+      await handleDeleteUser(pendingUserAction.user.id);
+    } else {
+      await handleUnlockUser(pendingUserAction.user);
+    }
+    setPendingUserAction(null);
+  };
+
   return (
     <main className="p-8">
       <div className="mb-8 flex items-center justify-between">
@@ -148,13 +159,6 @@ export function AdminUsers() {
           <Button variant="outline" className="h-11 px-6">
             <Download className="mr-2 h-5 w-5" />
             Xuất dữ liệu
-          </Button>
-          <Button
-            onClick={() => setIsAddUserModalOpen(true)}
-            className="h-11 bg-gradient-to-r from-purple-600 to-blue-600 px-6 text-white"
-          >
-            <Plus className="mr-2 h-5 w-5" />
-            Thêm người dùng
           </Button>
         </div>
       </div>
@@ -246,12 +250,12 @@ export function AdminUsers() {
                             variant="ghost"
                             size="sm"
                             className="text-green-700 hover:bg-green-50 hover:text-green-800"
-                            onClick={() => handleUnlockUser(user)}
+                            onClick={() => setPendingUserAction({ type: "unlock", user })}
                           >
                             Mở khóa
                           </Button>
                         ) : (
-                          <Button variant="ghost" size="sm" onClick={() => handleDeleteUser(user.id)}>
+                          <Button variant="ghost" size="sm" onClick={() => setPendingUserAction({ type: "lock", user })}>
                             Khóa
                           </Button>
                         )}
@@ -278,11 +282,36 @@ export function AdminUsers() {
         </div>
       </div>
 
-      <AddUserModal
-        isOpen={isAddUserModalOpen}
-        onClose={() => setIsAddUserModalOpen(false)}
-        onSave={handleAddUser}
-      />
+      <AlertDialog
+        open={Boolean(pendingUserAction)}
+        onOpenChange={(open) => !open && setPendingUserAction(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {pendingUserAction?.type === "lock" ? "Xác nhận khóa người dùng?" : "Xác nhận mở khóa người dùng?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingUserAction?.type === "lock"
+                ? `Tài khoản "${pendingUserAction?.user?.email}" sẽ bị khóa.`
+                : `Tài khoản "${pendingUserAction?.user?.email}" sẽ được mở khóa.`}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-gray-300 text-gray-700 hover:bg-gray-100">Hủy</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmUserAction}
+              className={
+                pendingUserAction?.type === "lock"
+                  ? "bg-red-600 text-white hover:bg-red-700"
+                  : "bg-green-600 text-white hover:bg-green-700"
+              }
+            >
+              Xác nhận
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </main>
   );
 }

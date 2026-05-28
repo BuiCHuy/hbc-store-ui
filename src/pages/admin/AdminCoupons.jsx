@@ -8,7 +8,7 @@ import { Input } from "../../components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 import { CouponsTable } from "../../components/admin/CouponsTable";
 import { AddCouponModal } from "../../components/admin/AddCouponModal";
-import { createCoupon, deleteCoupon, getCoupons } from "../../services/adminApi";
+import { createCoupon, deleteCoupon, getCoupons, updateCoupon } from "../../services/adminApi";
 
 function getCouponDisplayStatus(coupon) {
   const now = Date.now();
@@ -24,6 +24,7 @@ function getCouponDisplayStatus(coupon) {
 
 export function AdminCoupons() {
   const [isAddCouponModalOpen, setIsAddCouponModalOpen] = useState(false);
+  const [editingCoupon, setEditingCoupon] = useState(null);
   const [coupons, setCoupons] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -71,6 +72,22 @@ export function AdminCoupons() {
       setIsAddCouponModalOpen(false);
     } catch (error) {
       toast.error("Không thể tạo mã giảm giá", {
+        description: error.message,
+      });
+    }
+  };
+
+  const handleEditCoupon = async (formData) => {
+    if (!editingCoupon) return;
+    try {
+      const savedCoupon = await updateCoupon(editingCoupon.id, formData);
+      setCoupons((current) =>
+        current.map((item) => (item.id === editingCoupon.id ? savedCoupon : item))
+      );
+      toast.success("Cập nhật mã giảm giá thành công!");
+      setEditingCoupon(null);
+    } catch (error) {
+      toast.error("Không thể cập nhật mã giảm giá", {
         description: error.message,
       });
     }
@@ -183,6 +200,7 @@ export function AdminCoupons() {
         coupons={filteredCoupons}
         isLoading={isLoading}
         onDeleteCoupon={handleDeleteCoupon}
+        onEditCoupon={setEditingCoupon}
       />
 
       {isAddCouponModalOpen && (
@@ -190,6 +208,16 @@ export function AdminCoupons() {
           isOpen={isAddCouponModalOpen}
           onClose={() => setIsAddCouponModalOpen(false)}
           onSave={handleAddCoupon}
+        />
+      )}
+      {editingCoupon && (
+        <AddCouponModal
+          isOpen={Boolean(editingCoupon)}
+          onClose={() => setEditingCoupon(null)}
+          onSave={handleEditCoupon}
+          initialData={editingCoupon}
+          title="Cập nhật mã giảm giá"
+          submitLabel="Lưu thay đổi"
         />
       )}
     </main>
