@@ -172,13 +172,13 @@ export async function cancelMyOrder(id) {
   return updateOrderStatus(id, "CANCELLED");
 }
 
-function toOrderPayload({ guestData, cartItems, couponId = null, shippingFee = 0, discountAmount = 0 }) {
+function toOrderPayload({ checkoutData, cartItems, couponId = null, shippingFee = 0, discountAmount = 0 }) {
   return {
-    customerName: guestData.fullName,
-    customerPhone: guestData.phoneNumber,
-    customerEmail: guestData.email || "",
-    shippingAddress: guestData.address,
-    paymentMethod: guestData.paymentMethod,
+    customerName: checkoutData.fullName,
+    customerPhone: checkoutData.phoneNumber,
+    customerEmail: checkoutData.email || "",
+    shippingAddress: checkoutData.address,
+    paymentMethod: checkoutData.paymentMethod,
     couponId,
     shippingFee,
     discountAmount,
@@ -190,10 +190,13 @@ function toOrderPayload({ guestData, cartItems, couponId = null, shippingFee = 0
   };
 }
 
-export async function createGuestOrder(orderData) {
+export async function createOrder(orderData) {
   const data = await apiPost("/orders", toOrderPayload(orderData));
   return normalizeOrder(data);
 }
+
+// Backward-compatible alias
+export const createGuestOrder = createOrder;
 
 export async function createPayOSPayment(orderId) {
   return apiPost("/payments/payos/create", { orderId: Number(orderId) });

@@ -10,7 +10,7 @@ import { PaymentQrModal } from "../PaymentQrModal";
 import { addCartItem } from "../../services/cartStorage";
 import { toast } from "sonner";
 import {
-  createGuestOrder,
+  createOrder,
   createPayOSPayment,
   getCoupons,
   getOrderById,
@@ -36,10 +36,11 @@ export function ProductInfo({
   const [isOrderConfirmationModalOpen, setIsOrderConfirmationModalOpen] = useState(false);
   const [isOrderSuccessModalOpen, setIsOrderSuccessModalOpen] = useState(false);
   const [isMomoPaymentModalOpen, setIsMomoPaymentModalOpen] = useState(false);
-  const [guestCheckoutData, setGuestCheckoutData] = useState(null);
+  const [checkoutData, setCheckoutData] = useState(null);
   const [createdOrder, setCreatedOrder] = useState(null);
   const [momoPayment, setMomoPayment] = useState(null);
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
+  const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
   const [availableCoupons, setAvailableCoupons] = useState([]);
   const [discount, setDiscount] = useState(0);
   const [appliedVoucher, setAppliedVoucher] = useState("");
@@ -129,13 +130,13 @@ export function ProductInfo({
     phoneNumber: user?.phoneNumber || "",
     email: user?.email || "",
     address: user?.address || "",
-    voucherCode: guestCheckoutData?.voucherCode || appliedVoucher,
-    paymentMethod: guestCheckoutData?.paymentMethod || "COD",
+    voucherCode: checkoutData?.voucherCode || appliedVoucher,
+    paymentMethod: checkoutData?.paymentMethod || "COD",
   };
   const successTotalAmount = Number(createdOrder?.totalAmount ?? createdOrder?.total_amount ?? total);
   const successPaymentMethod =
-    createdOrder?.paymentMethod ?? createdOrder?.payment_method ?? guestCheckoutData?.paymentMethod;
-  const successCustomerEmail = createdOrder?.guestEmail ?? createdOrder?.guest_email ?? guestCheckoutData?.email;
+    createdOrder?.paymentMethod ?? createdOrder?.payment_method ?? checkoutData?.paymentMethod;
+  const successCustomerEmail = createdOrder?.guestEmail ?? createdOrder?.guest_email ?? checkoutData?.email;
 
   const applyCouponCode = (rawCode) => {
     const code = String(rawCode || "").trim().toUpperCase();
@@ -204,7 +205,7 @@ export function ProductInfo({
       toast.error(result.message);
       return;
     }
-    setGuestCheckoutData({ ...data, voucherCode: result.code });
+    setCheckoutData({ ...data, voucherCode: result.code });
     setIsCheckoutModalOpen(false);
     setIsOrderConfirmationModalOpen(true);
   };
@@ -215,9 +216,11 @@ export function ProductInfo({
   };
 
   const handleOrderConfirm = async () => {
+    if (isSubmittingOrder) return;
+    setIsSubmittingOrder(true);
     try {
-      const order = await createGuestOrder({
-        guestData: guestCheckoutData,
+      const order = await createOrder({
+        checkoutData,
         cartItems: [buyNowItem],
         couponId: appliedCouponId,
         shippingFee,
@@ -226,7 +229,7 @@ export function ProductInfo({
       setCreatedOrder(order);
       setIsOrderConfirmationModalOpen(false);
 
-      if (guestCheckoutData?.paymentMethod === "BANK_TRANSFER") {
+      if (checkoutData?.paymentMethod === "BANK_TRANSFER") {
         try {
           const momo = await createPayOSPayment(order.id);
           setMomoPayment(momo);
@@ -245,6 +248,8 @@ export function ProductInfo({
       toast.error("Không thể tạo đơn hàng", {
         description: error.message,
       });
+    } finally {
+      setIsSubmittingOrder(false);
     }
   };
 
@@ -387,22 +392,23 @@ export function ProductInfo({
         initialData={checkoutInitialData}
       />
 
-      {guestCheckoutData ? (
+      {checkoutData ? (
         <OrderConfirmationModal
           isOpen={isOrderConfirmationModalOpen}
           onClose={() => setIsOrderConfirmationModalOpen(false)}
           onConfirm={handleOrderConfirm}
           onEdit={handleEditOrder}
-          guestData={guestCheckoutData}
+          checkoutData={checkoutData}
           cartItems={[buyNowItem]}
           subtotal={subtotal}
           shipping={shippingFee}
           discount={discount}
           appliedVoucher={appliedVoucher}
+          isSubmitting={isSubmittingOrder}
         />
       ) : null}
 
-      {guestCheckoutData ? (
+      {checkoutData ? (
         <OrderSuccessModal
           isOpen={isOrderSuccessModalOpen}
           onClose={() => setIsOrderSuccessModalOpen(false)}

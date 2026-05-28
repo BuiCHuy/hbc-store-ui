@@ -93,14 +93,17 @@ export function AuthProvider({ children }) {
         password,
         fullName,
       });
-      const userData = normalizeBackendUser(data.user, data.token);
-      setUser(userData);
-      localStorage.setItem("auth_user", JSON.stringify(userData));
-      setCartUserKey(userData.id || userData.email);
-      return true;
+      return {
+        success: true,
+        message: data?.message || "Dang ky thanh cong",
+        requiresEmailVerification: !!data?.requiresEmailVerification,
+      };
     } catch (error) {
       console.error("Lỗi đăng ký khách hàng:", error);
-      return false;
+      return {
+        success: false,
+        message: error?.message || "Dang ky that bai",
+      };
     }
   };
 

@@ -79,6 +79,7 @@ export function AdminProducts() {
   const [categories, setCategories] = useState([]);
   const [brands, setBrands] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSavingProduct, setIsSavingProduct] = useState(false);
   const [isAddProductModalOpen, setIsAddProductModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [viewingProduct, setViewingProduct] = useState(null);
@@ -189,6 +190,7 @@ export function AdminProducts() {
       : value;
 
   const handleAddProduct = async (formData) => {
+    setIsSavingProduct(true);
     try {
       const savedProduct = await createProduct(formData);
       setProducts((current) => [savedProduct, ...current]);
@@ -201,11 +203,14 @@ export function AdminProducts() {
     } catch (error) {
       toast.error("Không thể thêm sản phẩm", { description: error.message });
       throw error;
+    } finally {
+      setIsSavingProduct(false);
     }
   };
 
   const handleEditProduct = async (formData) => {
     if (!editingProduct) return null;
+    setIsSavingProduct(true);
     try {
       const savedProduct = await updateProduct(editingProduct.id, formData);
       setProducts((current) =>
@@ -219,6 +224,8 @@ export function AdminProducts() {
     } catch (error) {
       toast.error("Không thể cập nhật sản phẩm", { description: error.message });
       throw error;
+    } finally {
+      setIsSavingProduct(false);
     }
   };
 
@@ -430,6 +437,7 @@ export function AdminProducts() {
           isOpen={isAddProductModalOpen}
           onClose={() => setIsAddProductModalOpen(false)}
           onSave={handleAddProduct}
+          isSubmitting={isSavingProduct}
           categories={categoryOptions}
           brands={brandOptions}
         />
@@ -440,6 +448,7 @@ export function AdminProducts() {
           isOpen={Boolean(editingProduct)}
           onClose={() => setEditingProduct(null)}
           onSave={handleEditProduct}
+          isSubmitting={isSavingProduct}
           categories={categoryOptions}
           brands={brandOptions}
           initialData={editingProduct}

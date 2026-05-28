@@ -5,9 +5,9 @@ import { Button } from "../components/ui/button";
 import { Input } from "../components/ui/input";
 import { Checkbox } from "../components/ui/checkbox";
 import { toast } from "sonner";
-import { getCartItems, saveCartItems } from "../services/cartStorage";
+import { deleteCartItem, getCartItems, updateCartItemQuantity } from "../services/cartStorage";
 import {
-  createGuestOrder,
+  createOrder,
   createPayOSPayment,
   getCoupons,
   getOrderById,
@@ -34,16 +34,14 @@ export function ShoppingCart() {
   const [isOrderConfirmationModalOpen, setIsOrderConfirmationModalOpen] = useState(false);
   const [isOrderSuccessModalOpen, setIsOrderSuccessModalOpen] = useState(false);
   const [isMomoPaymentModalOpen, setIsMomoPaymentModalOpen] = useState(false);
-  const [guestCheckoutData, setGuestCheckoutData] = useState(null);
+  const [checkoutData, setCheckoutData] = useState(null);
   const [createdOrder, setCreatedOrder] = useState(null);
   const [momoPayment, setMomoPayment] = useState(null);
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
+  const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+  const [pendingCheckoutItemIds, setPendingCheckoutItemIds] = useState([]);
 
   const formatPrice = (price) => new Intl.NumberFormat("vi-VN").format(price);
-
-  useEffect(() => {
-    saveCartItems(cartItems);
-  }, [cartItems]);
 
   useEffect(() => {
     const latestItems = getCartItems();
@@ -82,6 +80,13 @@ export function ShoppingCart() {
           return;
         }
         if (latestOrder.payment_status === "PAID") {
+          if (pendingCheckoutItemIds.length > 0) {
+            await Promise.all(pendingCheckoutItemIds.map((itemId) => deleteCartItem(itemId)));
+            const latestItems = getCartItems();
+            setCartItems(latestItems);
+            setSelectedItems(latestItems.map((item) => item.id));
+            setPendingCheckoutItemIds([]);
+          }
           setCreatedOrder(latestOrder);
           setIsMomoPaymentModalOpen(false);
           setIsOrderSuccessModalOpen(true);
@@ -104,7 +109,7 @@ export function ShoppingCart() {
       clearInterval(interval);
       setIsCheckingPayment(false);
     };
-  }, [isMomoPaymentModalOpen, createdOrder?.id]);
+  }, [isMomoPaymentModalOpen, createdOrder?.id, pendingCheckoutItemIds]);
 
   const selectedCartItems = cartItems.filter((item) => selectedItems.includes(item.id));
   const subtotal = selectedCartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
@@ -171,18 +176,21 @@ export function ShoppingCart() {
     else setSelectedItems(selectedItems.filter((itemId) => itemId !== id));
   };
 
-  const updateQuantity = (id, newQuantity) => {
+  const updateQuantity = async (id, newQuantity) => {
     if (newQuantity < 1) return;
     if (newQuantity > 10) {
       toast.warning("Chỉ được mua tối đa 10 sản phẩm mỗi loại!");
       return;
     }
-    setCartItems(cartItems.map((item) => (item.id === id ? { ...item, quantity: newQuantity } : item)));
+    await updateCartItemQuantity(id, newQuantity);
+    setCartItems(getCartItems());
   };
 
-  const removeItem = (id) => {
-    setCartItems(cartItems.filter((item) => item.id !== id));
-    setSelectedItems(selectedItems.filter((itemId) => itemId !== id));
+  const removeItem = async (id) => {
+    await deleteCartItem(id);
+    const latestItems = getCartItems();
+    setCartItems(latestItems);
+    setSelectedItems((prev) => prev.filter((itemId) => itemId !== id));
     toast.success("Đã xóa khỏi giỏ hàng");
   };
 
@@ -221,7 +229,7 @@ export function ShoppingCart() {
       toast.error(result.message);
       return;
     }
-    setGuestCheckoutData({ ...data, voucherCode: result.code });
+    setCheckoutData({ ...data, voucherCode: result.code });
     setIsCheckoutModalOpen(false);
     setIsOrderConfirmationModalOpen(true);
   };
@@ -232,21 +240,28 @@ export function ShoppingCart() {
   };
 
   const handleOrderConfirm = async () => {
+    if (isSubmittingOrder) return;
+    setIsSubmittingOrder(true);
     try {
-      const order = await createGuestOrder({
-        guestData: guestCheckoutData,
+      const checkoutItemIds = [...selectedItems];
+      const order = await createOrder({
+        checkoutData,
         cartItems: selectedCartItems,
         couponId: appliedCouponId,
         shippingFee,
         discountAmount: discount,
       });
       setCreatedOrder(order);
-      const remainingItems = cartItems.filter((item) => !selectedItems.includes(item.id));
-      setCartItems(remainingItems);
-      setSelectedItems([]);
+      if (checkoutItemIds.length > 0) {
+        await Promise.all(checkoutItemIds.map((itemId) => deleteCartItem(itemId)));
+      }
+      const latestItems = getCartItems();
+      setCartItems(latestItems);
+      setSelectedItems(latestItems.map((item) => item.id));
+      setPendingCheckoutItemIds([]);
       setIsOrderConfirmationModalOpen(false);
 
-      if (guestCheckoutData?.paymentMethod === "BANK_TRANSFER") {
+      if (checkoutData?.paymentMethod === "BANK_TRANSFER") {
         try {
           const momo = await createPayOSPayment(order.id);
           setMomoPayment(momo);
@@ -265,6 +280,8 @@ export function ShoppingCart() {
       toast.error("Không thể tạo đơn hàng", {
         description: error.message,
       });
+    } finally {
+      setIsSubmittingOrder(false);
     }
   };
 
@@ -273,15 +290,14 @@ export function ShoppingCart() {
     phoneNumber: user?.phoneNumber || "",
     email: user?.email || "",
     address: user?.address || "",
-    voucherCode: guestCheckoutData?.voucherCode || appliedVoucher || promoCode,
-    paymentMethod: guestCheckoutData?.paymentMethod || "COD",
-    createAccount: false,
+    voucherCode: checkoutData?.voucherCode || appliedVoucher || promoCode,
+    paymentMethod: checkoutData?.paymentMethod || "COD",
   };
 
   const successTotalAmount = Number(createdOrder?.totalAmount ?? createdOrder?.total_amount ?? total);
   const successPaymentMethod =
-    createdOrder?.paymentMethod ?? createdOrder?.payment_method ?? guestCheckoutData?.paymentMethod;
-  const successCustomerEmail = createdOrder?.guestEmail ?? createdOrder?.guest_email ?? guestCheckoutData?.email;
+    createdOrder?.paymentMethod ?? createdOrder?.payment_method ?? checkoutData?.paymentMethod;
+  const successCustomerEmail = createdOrder?.guestEmail ?? createdOrder?.guest_email ?? checkoutData?.email;
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -464,22 +480,23 @@ export function ShoppingCart() {
         initialData={checkoutInitialData}
       />
 
-      {guestCheckoutData ? (
+      {checkoutData ? (
         <OrderConfirmationModal
           isOpen={isOrderConfirmationModalOpen}
           onClose={() => setIsOrderConfirmationModalOpen(false)}
           onConfirm={handleOrderConfirm}
           onEdit={handleEditOrder}
-          guestData={guestCheckoutData}
+          checkoutData={checkoutData}
           cartItems={selectedCartItems}
           subtotal={subtotal}
           shipping={shippingFee}
           discount={discount}
           appliedVoucher={appliedVoucher}
+          isSubmitting={isSubmittingOrder}
         />
       ) : null}
 
-      {guestCheckoutData ? (
+      {checkoutData ? (
         <OrderSuccessModal
           isOpen={isOrderSuccessModalOpen}
           onClose={() => setIsOrderSuccessModalOpen(false)}

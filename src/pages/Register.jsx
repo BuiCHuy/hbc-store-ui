@@ -14,6 +14,8 @@ export function Register() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [verifyModalOpen, setVerifyModalOpen] = useState(false);
+  const [verifyTargetEmail, setVerifyTargetEmail] = useState("");
   const [formData, setFormData] = useState({
     fullName: "",
     email: "",
@@ -88,25 +90,21 @@ export function Register() {
     }
 
     setIsSubmitting(true);
-    const success = await registerCustomer({
+    const result = await registerCustomer({
       email: formData.email,
       password: formData.password,
       fullName: formData.fullName,
     });
     setIsSubmitting(false);
 
-    if (!success) {
+    if (!result?.success) {
       toast.error("Đăng ký thất bại!", {
-        description: "Email đã tồn tại hoặc thông tin không hợp lệ.",
+        description: result?.message || "Thông tin đăng ký không hợp lệ.",
       });
       return;
     }
-
-    toast.success("Đăng ký thành công!", {
-      description: "Chào mừng bạn đã gia nhập cộng đồng HBC Store.",
-    });
-
-    setTimeout(() => navigate("/"), 500);
+    setVerifyTargetEmail(formData.email);
+    setVerifyModalOpen(true);
   };
 
   const passwordRequirements = [
@@ -344,6 +342,31 @@ export function Register() {
           </div>
         </div>
       </div>
+      {verifyModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg">
+            <h3 className="text-lg font-semibold text-gray-900">Đăng ký thành công</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              Một email xác nhận đã được gửi đến{" "}
+              <span className="font-medium">{verifyTargetEmail}</span>. Vui lòng mở email và bấm link để kích hoạt tài khoản trong vòng 30 phút.
+              Nếu quá thời gian này mà chưa xác thực, tài khoản sẽ tự động bị xóa.
+            </p>
+            <div className="mt-6 flex justify-end gap-2">
+              <Button variant="outline" onClick={() => setVerifyModalOpen(false)}>
+                Đóng
+              </Button>
+              <Button
+                onClick={() => {
+                  setVerifyModalOpen(false);
+                  navigate("/login");
+                }}
+              >
+                Về đăng nhập
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

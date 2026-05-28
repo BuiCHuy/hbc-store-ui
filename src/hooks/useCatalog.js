@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { apiDelete, apiGet, apiPost, apiPostFormData, apiPut, apiRequest, toAbsoluteApiUrl } from "../lib/api";
 
 function toArray(payload) {
@@ -199,8 +199,14 @@ export function useCatalog(searchTerm = "") {
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState(null);
   const [searchMeta, setSearchMeta] = useState(null);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+  const pageRef = useRef(0);
+  const hasMoreRef = useRef(false);
+  const loadingAllRef = useRef(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -218,7 +224,7 @@ export function useCatalog(searchTerm = "") {
               { message: query, sessionId: buildSearchSession("catalog-search", query) },
               { skipAuth: true }
             )
-          : apiGet("/products", { skipAuth: true });
+          : apiGet("/products?page=0&size=20", { skipAuth: true });
 
         const [categoryData, productData, promotionData] = await Promise.all([
           categoryPromise,
@@ -245,12 +251,28 @@ export function useCatalog(searchTerm = "") {
 
         setCategories(activeCategories);
         setProducts(pricedProducts);
+        if (!query) {
+          const totalPages = Number(productData?.totalPages ?? 1);
+          setPage(0);
+          setHasMore(totalPages > 1);
+          pageRef.current = 0;
+          hasMoreRef.current = totalPages > 1;
+        } else {
+          setPage(0);
+          setHasMore(false);
+          pageRef.current = 0;
+          hasMoreRef.current = false;
+        }
         setSearchMeta(null);
       } catch (loadError) {
         console.error("Lỗi tải dữ liệu catalog:", loadError);
         if (!isMounted) return;
         setCategories([]);
         setProducts([]);
+        setPage(0);
+        setHasMore(false);
+        pageRef.current = 0;
+        hasMoreRef.current = false;
         setError(loadError);
         setSearchMeta(null);
       } finally {
@@ -267,9 +289,69 @@ export function useCatalog(searchTerm = "") {
     };
   }, [searchTerm]);
 
+  const loadMoreProducts = async () => {
+    const query = String(searchTerm || "").trim();
+    if (query || !hasMore || isLoadingMore) return;
+    setIsLoadingMore(true);
+    try {
+      const nextPage = page + 1;
+      const [productData, promotionData] = await Promise.all([
+        apiGet(`/products?page=${nextPage}&size=20`, { skipAuth: true }),
+        apiGet("/promotions", { skipAuth: true }),
+      ]);
+      const promotions = toArray(promotionData).map(normalizePromotion);
+      const incoming = toArray(productData)
+        .filter((product) => product.status !== "INACTIVE")
+        .map(normalizeProduct);
+      const pricedIncoming = applyPromotionsToProducts(incoming, promotions);
+      setProducts((prev) => [...prev, ...pricedIncoming]);
+      setPage(nextPage);
+      pageRef.current = nextPage;
+      const totalPages = Number(productData?.totalPages ?? nextPage + 1);
+      const more = nextPage + 1 < totalPages;
+      setHasMore(more);
+      hasMoreRef.current = more;
+    } catch (loadError) {
+      setError(loadError);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
+  const loadAllProducts = async () => {
+    const query = String(searchTerm || "").trim();
+    if (query || loadingAllRef.current) return;
+    loadingAllRef.current = true;
+    try {
+      while (hasMoreRef.current) {
+        const nextPage = pageRef.current + 1;
+        const [productData, promotionData] = await Promise.all([
+          apiGet(`/products?page=${nextPage}&size=20`, { skipAuth: true }),
+          apiGet("/promotions", { skipAuth: true }),
+        ]);
+        const promotions = toArray(promotionData).map(normalizePromotion);
+        const incoming = toArray(productData)
+          .filter((product) => product.status !== "INACTIVE")
+          .map(normalizeProduct);
+        const pricedIncoming = applyPromotionsToProducts(incoming, promotions);
+        setProducts((prev) => [...prev, ...pricedIncoming]);
+        pageRef.current = nextPage;
+        setPage(nextPage);
+        const totalPages = Number(productData?.totalPages ?? nextPage + 1);
+        const more = nextPage + 1 < totalPages;
+        hasMoreRef.current = more;
+        setHasMore(more);
+      }
+    } catch (loadError) {
+      setError(loadError);
+    } finally {
+      loadingAllRef.current = false;
+    }
+  };
+
   return useMemo(
-    () => ({ categories, products, isLoading, error, searchMeta }),
-    [categories, products, isLoading, error, searchMeta]
+    () => ({ categories, products, isLoading, isLoadingMore, hasMore, loadMoreProducts, loadAllProducts, error, searchMeta }),
+    [categories, products, isLoading, isLoadingMore, hasMore, error, searchMeta]
   );
 }
 

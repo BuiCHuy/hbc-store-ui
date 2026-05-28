@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { ArrowRight, Grid2x2, LayoutGrid, SlidersHorizontal } from "lucide-react";
 import { ProductCard } from "./ProductCard";
 import { Button } from "./ui/button";
@@ -9,12 +9,21 @@ export function ProductGrid({
   categories = [],
   products = [],
   isLoading = false,
+  isLoadingMore = false,
+  hasMore = false,
+  onLoadMore = () => {},
+  onLoadAll = () => {},
   error = null,
 }) {
   const [viewMode, setViewMode] = useState("grid");
   const [sortBy, setSortBy] = useState("featured");
   const [brandFilter, setBrandFilter] = useState("all");
-  const [visibleCount, setVisibleCount] = useState(30);
+
+  React.useEffect(() => {
+    if ((selectedCategoryId !== "all" || brandFilter !== "all" || sortBy !== "featured") && hasMore) {
+      void onLoadAll();
+    }
+  }, [selectedCategoryId, brandFilter, sortBy, hasMore, onLoadAll]);
 
   const selectedCategory = categories.find((category) => String(category.id) === selectedCategoryId);
 
@@ -36,6 +45,11 @@ export function ProductGrid({
       : categoryFilteredProducts.filter((product) => product.brand === brandFilter);
 
   const sortedProducts = [...filteredProducts].sort((a, b) => {
+    if (sortBy === "featured") {
+      const ratingDiff = (b.rating || 0) - (a.rating || 0);
+      if (ratingDiff !== 0) return ratingDiff;
+      return (b.reviews || 0) - (a.reviews || 0);
+    }
     if (sortBy === "price-low") return (a.price || 0) - (b.price || 0);
     if (sortBy === "price-high") return (b.price || 0) - (a.price || 0);
     if (sortBy === "rating") return (b.rating || 0) - (a.rating || 0);
@@ -43,18 +57,7 @@ export function ProductGrid({
     return 0;
   });
 
-  const totalProductsCount = products.length;
-  const totalProductsByBrand =
-    brandFilter === "all"
-      ? totalProductsCount
-      : products.filter((product) => (product.brand || "").trim() === brandFilter).length;
-
-  const visibleProducts = sortedProducts.slice(0, visibleCount);
-  const canLoadMore = visibleCount < sortedProducts.length;
-
-  useEffect(() => {
-    setVisibleCount(30);
-  }, [selectedCategoryId, brandFilter, sortBy]);
+  const visibleProducts = sortedProducts;
 
   return (
     <section id="product-grid" className="bg-gray-50 py-10">
@@ -130,19 +133,6 @@ export function ProductGrid({
             <span>
               Hiển thị <strong className="text-gray-900">{visibleProducts.length}</strong> sản phẩm
             </span>
-            <span className="h-3 w-px bg-gray-300" />
-            <span>
-              {brandFilter === "all" ? (
-                <>
-                  Tổng <strong className="text-gray-900">{totalProductsCount}</strong> sản phẩm
-                </>
-              ) : (
-                <>
-                  Hãng <strong className="text-gray-900">{brandFilter}</strong> có{" "}
-                  <strong className="text-gray-900">{totalProductsByBrand}</strong> sản phẩm
-                </>
-              )}
-            </span>
           </div>
         </div>
 
@@ -178,16 +168,16 @@ export function ProductGrid({
           </div>
         )}
 
-        {sortedProducts.length > 30 && (
+        {(hasMore || isLoadingMore) && (
           <div className="mt-8 text-center">
             <Button
               size="sm"
               variant="outline"
-              disabled={!canLoadMore}
-              onClick={() => setVisibleCount((prev) => prev + 30)}
+              disabled={!hasMore || isLoadingMore}
+              onClick={onLoadMore}
               className="h-9 border border-gray-300 px-5 text-xs font-semibold hover:border-purple-600 hover:bg-purple-50 hover:text-purple-600 disabled:opacity-60"
             >
-              {canLoadMore ? "Xem thêm sản phẩm" : "Đã hiển thị tất cả"}
+              {isLoadingMore ? "Đang tải..." : hasMore ? "Xem thêm 20 sản phẩm" : "Đã hiển thị tất cả"}
               <ArrowRight className="ml-1.5 h-4 w-4" />
             </Button>
           </div>

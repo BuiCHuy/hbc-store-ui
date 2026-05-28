@@ -11,7 +11,7 @@ export function Home() {
   const [selectedCategoryId, setSelectedCategoryId] = useState("all");
   const [searchParams] = useSearchParams();
   const searchTerm = searchParams.get("q") || "";
-  const { categories, products, isLoading, error } = useCatalog(searchTerm);
+  const { categories, products, isLoading, isLoadingMore, hasMore, loadMoreProducts, loadAllProducts, error } = useCatalog(searchTerm);
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col relative">
@@ -29,6 +29,10 @@ export function Home() {
           products={products}
           selectedCategoryId={selectedCategoryId}
           isLoading={isLoading}
+          isLoadingMore={isLoadingMore}
+          hasMore={hasMore}
+          onLoadMore={loadMoreProducts}
+          onLoadAll={loadAllProducts}
           error={error}
         />
       </main>

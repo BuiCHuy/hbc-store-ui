@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "./ui/dialog";
 import { Button } from "./ui/button";
-import { CheckCircle2, Mail, ShoppingBag, Search } from "lucide-react";
+import { CheckCircle2, ShoppingBag, Search } from "lucide-react";
 import { Link } from "react-router-dom";
 import confetti from "canvas-confetti";
 
@@ -88,15 +88,6 @@ export function OrderSuccessModal({
                 <span className="text-lg font-bold text-green-600">{formatPrice(totalAmount)}</span>
               </div>
             </div>
-
-            {customerEmail && (
-              <div className="flex items-center gap-3 rounded-xl border border-blue-100 bg-blue-50 p-3 text-xs text-blue-700">
-                <Mail className="h-4 w-4 flex-shrink-0" />
-                <p>
-                  Xác nhận đã gửi tới: <span className="font-semibold">{customerEmail}</span>
-                </p>
-              </div>
-            )}
 
             <div className="grid grid-cols-1 gap-2">
               <Link to="/" onClick={onClose}>

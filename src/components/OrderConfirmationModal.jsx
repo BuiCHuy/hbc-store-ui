@@ -7,19 +7,20 @@ import {
   DialogDescription,
 } from "./ui/dialog";
 import { Button } from "./ui/button";
-import { User, Phone, MapPin, Wallet, Banknote, Package, Truck, CheckCircle2, Edit3 } from "lucide-react";
+import { User, Phone, MapPin, Wallet, Banknote, Package, Truck, CheckCircle2, Edit3, Loader2 } from "lucide-react";
 
 export function OrderConfirmationModal({
   isOpen,
   onClose,
   onConfirm,
   onEdit,
-  guestData,
+  checkoutData,
   cartItems,
   subtotal,
   shipping,
   discount,
   appliedVoucher,
+  isSubmitting = false,
 }) {
   const total = subtotal + shipping - discount;
 
@@ -30,14 +31,14 @@ export function OrderConfirmationModal({
     }).format(price);
 
   const paymentText =
-    guestData?.paymentMethod === "COD"
+    checkoutData?.paymentMethod === "COD"
       ? "Thanh toán khi nhận hàng (COD)"
       : "Chuyển khoản ngân hàng";
 
-  if (!guestData) return null;
+  if (!checkoutData) return null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={isSubmitting ? undefined : onClose}>
       <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto p-0">
         <DialogDescription className="sr-only">
           Xác nhận đơn hàng với {cartItems.length} sản phẩm, tổng giá trị {formatPrice(total)}
@@ -64,25 +65,25 @@ export function OrderConfirmationModal({
                 <User className="h-5 w-5 text-gray-400" />
                 <div>
                   <p className="text-gray-500">Người nhận</p>
-                  <p className="font-semibold text-gray-900">{guestData.fullName}</p>
+                  <p className="font-semibold text-gray-900">{checkoutData.fullName}</p>
                 </div>
               </div>
               <div className="flex items-start gap-3">
                 <Phone className="h-5 w-5 text-gray-400" />
                 <div>
                   <p className="text-gray-500">Số điện thoại</p>
-                  <p className="font-semibold text-gray-900">{guestData.phoneNumber}</p>
+                  <p className="font-semibold text-gray-900">{checkoutData.phoneNumber}</p>
                 </div>
               </div>
               <div className="flex items-start gap-3 sm:col-span-2">
                 <MapPin className="h-5 w-5 text-gray-400" />
                 <div>
                   <p className="text-gray-500">Địa chỉ nhận hàng</p>
-                  <p className="font-semibold text-gray-900">{guestData.address}</p>
+                  <p className="font-semibold text-gray-900">{checkoutData.address}</p>
                 </div>
               </div>
               <div className="flex items-start gap-3 sm:col-span-2">
-                {guestData.paymentMethod === "COD" ? (
+                {checkoutData.paymentMethod === "COD" ? (
                   <Wallet className="h-5 w-5 text-blue-600" />
                 ) : (
                   <Banknote className="h-5 w-5 text-green-600" />
@@ -137,13 +138,13 @@ export function OrderConfirmationModal({
           </div>
 
           <div className="mt-8 flex items-center justify-end gap-3 border-t border-gray-200 pt-6">
-            <Button type="button" variant="outline" onClick={onEdit} className="h-12 px-6">
+            <Button type="button" variant="outline" onClick={onEdit} disabled={isSubmitting} className="h-12 px-6">
               <Edit3 className="mr-2 h-4 w-4" />
               Chỉnh sửa thông tin
             </Button>
-            <Button type="button" onClick={onConfirm} className="h-12 bg-blue-600 px-8 font-bold text-white hover:bg-blue-700">
-              <CheckCircle2 className="mr-2 h-5 w-5" />
-              Tôi xác nhận đặt đơn hàng này
+            <Button type="button" onClick={onConfirm} disabled={isSubmitting} className="h-12 bg-blue-600 px-8 font-bold text-white hover:bg-blue-700">
+              {isSubmitting ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <CheckCircle2 className="mr-2 h-5 w-5" />}
+              {isSubmitting ? "Đang xử lý..." : "Tôi xác nhận đặt đơn hàng này"}
             </Button>
           </div>
         </div>
@@ -151,3 +152,4 @@ export function OrderConfirmationModal({
     </Dialog>
   );
 }
+

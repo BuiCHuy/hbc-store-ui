@@ -15,6 +15,29 @@ const statusConfig = {
   CANCELLED: "Đã hủy",
 };
 
+const statusFilterStyles = {
+  all: {
+    active: "border-gray-900 bg-gray-900 text-white hover:bg-gray-800",
+    idle: "border-gray-300 text-gray-700 hover:border-gray-400 hover:bg-gray-50",
+  },
+  PENDING: {
+    active: "border-amber-500 bg-amber-500 text-white hover:bg-amber-600",
+    idle: "border-amber-200 text-amber-700 hover:border-amber-300 hover:bg-amber-50",
+  },
+  CONFIRMED: {
+    active: "border-indigo-500 bg-indigo-500 text-white hover:bg-indigo-600",
+    idle: "border-indigo-200 text-indigo-700 hover:border-indigo-300 hover:bg-indigo-50",
+  },
+  SHIPPING: {
+    active: "border-blue-500 bg-blue-500 text-white hover:bg-blue-600",
+    idle: "border-blue-200 text-blue-700 hover:border-blue-300 hover:bg-blue-50",
+  },
+  DELIVERED: {
+    active: "border-emerald-500 bg-emerald-500 text-white hover:bg-emerald-600",
+    idle: "border-emerald-200 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-50",
+  },
+};
+
 export function Orders() {
   const { isLoggedIn, isAuthReady, user } = useAuth();
   const navigate = useNavigate();
@@ -151,9 +174,13 @@ export function Orders() {
               ].map(([value, label]) => (
                 <Button
                   key={value}
-                  variant={filterStatus === value ? "default" : "outline"}
+                  variant="outline"
                   onClick={() => setFilterStatus(value)}
-                  className="h-11 whitespace-nowrap"
+                  className={`h-11 whitespace-nowrap border font-semibold ${
+                    filterStatus === value
+                      ? statusFilterStyles[value].active
+                      : statusFilterStyles[value].idle
+                  }`}
                 >
                   {label}
                 </Button>

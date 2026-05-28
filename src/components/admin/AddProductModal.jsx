@@ -21,6 +21,7 @@ import {
   X,
   Plus,
   Trash2,
+  Loader2,
 } from "lucide-react";
 import { uploadProductImages } from "../../hooks/useCatalog";
 
@@ -33,6 +34,7 @@ function AddProductModal({
   initialData = null,
   title = "Thêm sản phẩm mới",
   submitLabel = "Lưu sản phẩm",
+  isSubmitting = false,
 }) {
   const [formData, setFormData] = useState({
     name: "",
@@ -105,6 +107,7 @@ function AddProductModal({
   };
 
   const resetAndClose = () => {
+    if (isSubmitting) return;
     setErrors({});
     onClose();
   };
@@ -201,7 +204,7 @@ function AddProductModal({
 
   const handleSubmit = async (event) => {
     event.preventDefault();
-    if (!validate()) return;
+    if (!validate() || isSubmitting) return;
     try {
       const normalizedGallery = formData.galleryUrls.map((url) => url.trim()).filter(Boolean);
       const thumbnail = formData.imageUrl.trim();
@@ -450,13 +453,13 @@ function AddProductModal({
           </div>
 
           <DialogFooter className="gap-2 border-t border-gray-100 pt-4">
-            <Button type="button" variant="outline" onClick={resetAndClose} className="h-10 px-5">
+            <Button type="button" variant="outline" onClick={resetAndClose} disabled={isSubmitting} className="h-10 px-5">
               <X className="mr-2 h-4 w-4" />
               Hủy
             </Button>
-            <Button type="submit" className="h-10 bg-blue-600 px-6 text-white hover:bg-blue-700">
-              <Save className="mr-2 h-4 w-4" />
-              {submitLabel}
+            <Button type="submit" disabled={isSubmitting} className="h-10 bg-blue-600 px-6 text-white hover:bg-blue-700">
+              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              {isSubmitting ? "Đang lưu..." : submitLabel}
             </Button>
           </DialogFooter>
         </form>
