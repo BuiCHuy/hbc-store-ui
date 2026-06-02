@@ -235,6 +235,16 @@ export async function getShippingSettings() {
   return normalizeShippingSettings(data);
 }
 
+export async function getAdminNotifications() {
+  return apiGet("/admin/notifications");
+}
+
+export async function markAllAdminNotificationsAsRead() {
+  return apiRequest("/admin/notifications/read-all", {
+    method: "PATCH",
+  });
+}
+
 export async function updateShippingSettings(settings) {
   const data = await apiPut("/admin/shipping/settings", {
     northFee: Number(settings.northFee || 0),

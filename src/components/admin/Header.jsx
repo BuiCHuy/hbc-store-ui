@@ -3,11 +3,24 @@ import { Link, useNavigate } from "react-router-dom";
 import { Search, Bell, LayoutDashboard, Store, LogOut } from "lucide-react";
 import { Input } from "../ui/input";
 import { useAuth } from "../../contexts/AuthContext";
+import { useAdminNotifications } from "./AdminNotificationsContext";
 
 export function Header() {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const { notifications, unreadCount, markAllAsRead } = useAdminNotifications();
+
+  const toggleNotifications = () => {
+    setShowNotifications((prev) => {
+      const next = !prev;
+      if (next) {
+        markAllAsRead();
+      }
+      return next;
+    });
+  };
 
   return (
     <header className="sticky top-0 z-40 border-b border-gray-200 bg-white shadow-sm">
@@ -24,10 +37,67 @@ export function Header() {
         </div>
 
         <div className="ml-6 flex items-center gap-4">
-          <button className="relative rounded-lg p-2 transition-colors hover:bg-gray-100">
-            <Bell className="h-5 w-5 text-gray-600" />
-            <span className="absolute right-1 top-1 h-2 w-2 rounded-full border-2 border-white bg-red-500"></span>
-          </button>
+          <div className="relative">
+            <button
+              onClick={toggleNotifications}
+              onBlur={() => setTimeout(() => setShowNotifications(false), 180)}
+              className="relative rounded-lg p-2 transition-colors hover:bg-gray-100"
+            >
+              <Bell className="h-5 w-5 text-gray-600" />
+              {unreadCount > 0 ? (
+                <>
+                  <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full border-2 border-white bg-red-500"></span>
+                  <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </span>
+                </>
+              ) : null}
+            </button>
+
+            {showNotifications && (
+              <div className="absolute right-0 top-full z-50 mt-2 w-96 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-xl">
+                <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">Thông báo</p>
+                    <p className="text-xs text-gray-500">Đơn hàng mới sẽ hiện ở đây</p>
+                  </div>
+                  {unreadCount > 0 ? (
+                    <span className="rounded-full bg-red-50 px-2 py-1 text-xs font-semibold text-red-600">
+                      {unreadCount} mới
+                    </span>
+                  ) : null}
+                </div>
+
+                <div className="max-h-96 overflow-y-auto">
+                  {notifications.length > 0 ? (
+                    notifications.map((item) => (
+                      <Link
+                        key={item.id}
+                        to="/admin/orders"
+                        onClick={() => setShowNotifications(false)}
+                        className="block border-b border-gray-100 px-4 py-3 transition-colors hover:bg-gray-50"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-gray-900">{item.title}</p>
+                            <p className="mt-1 text-sm text-gray-600">{item.message}</p>
+                            <p className="mt-1 text-xs text-gray-400">
+                              {new Date(item.createdAt).toLocaleString("vi-VN")}
+                            </p>
+                          </div>
+                          {!item.readAt ? <span className="mt-1 h-2.5 w-2.5 rounded-full bg-red-500"></span> : null}
+                        </div>
+                      </Link>
+                    ))
+                  ) : (
+                    <div className="px-4 py-8 text-center text-sm text-gray-500">
+                      Chưa có thông báo đơn hàng mới.
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
 
           <div className="relative">
             <button

@@ -13,6 +13,7 @@ import {
   updateOrderStatus,
   updateRefundStatus,
 } from "../../services/adminApi";
+import { useAdminNotifications } from "../../components/admin/AdminNotificationsContext";
 
 const paymentLabels = {
   COD: "COD",
@@ -84,6 +85,7 @@ const getStatusBadge = (status) => {
 
 export function AdminOrders() {
   const PAGE_SIZE = 10;
+  const { refreshToken } = useAdminNotifications();
   const [orders, setOrders] = useState([]);
   const [refunds, setRefunds] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -116,7 +118,7 @@ export function AdminOrders() {
     return () => {
       isMounted = false;
     };
-  }, []);
+  }, [refreshToken]);
 
   const openOrderDetail = (order) => {
     setSelectedOrder(order);
