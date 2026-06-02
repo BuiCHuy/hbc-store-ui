@@ -14,6 +14,8 @@ import {
   createPayOSPayment,
   getCoupons,
   getOrderById,
+  quoteShipping,
+  syncPayOSPaymentStatus,
 } from "../../services/adminApi";
 
 export function ProductInfo({
@@ -45,6 +47,7 @@ export function ProductInfo({
   const [discount, setDiscount] = useState(0);
   const [appliedVoucher, setAppliedVoucher] = useState("");
   const [appliedCouponId, setAppliedCouponId] = useState(null);
+  const [shippingFee, setShippingFee] = useState(0);
 
   useEffect(() => {
     let mounted = true;
@@ -68,6 +71,9 @@ export function ProductInfo({
       if (!active) return;
       setIsCheckingPayment(true);
       try {
+        if (momoPayment) {
+          await syncPayOSPaymentStatus(momoPayment);
+        }
         const latestOrder = await getOrderById(createdOrder.id);
         if (!active) return;
         if (latestOrder.status === "CANCELLED") {
@@ -94,7 +100,7 @@ export function ProductInfo({
       clearInterval(interval);
       setIsCheckingPayment(false);
     };
-  }, [isMomoPaymentModalOpen, createdOrder?.id]);
+  }, [isMomoPaymentModalOpen, createdOrder?.id, momoPayment]);
 
   const formatPrice = (value) =>
     new Intl.NumberFormat("vi-VN", {
@@ -123,13 +129,34 @@ export function ProductInfo({
   };
 
   const subtotal = price * quantity;
-  const shippingFee = subtotal > 1000000 ? 0 : 35000;
   const total = subtotal + shippingFee - discount;
+
+  useEffect(() => {
+    let mounted = true;
+    quoteShipping({
+      subtotal,
+      province: checkoutData?.province || "",
+      shippingAddress: checkoutData?.address || user?.address || "",
+    })
+      .then((quote) => {
+        if (mounted) setShippingFee(quote.shippingFee);
+      })
+      .catch(() => {
+        if (mounted) setShippingFee(0);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [subtotal, checkoutData?.province, checkoutData?.address, user?.address]);
   const checkoutInitialData = {
     fullName: user?.name || "",
     phoneNumber: user?.phoneNumber || "",
     email: user?.email || "",
-    address: user?.address || "",
+    address: checkoutData?.address || user?.address || "",
+    province: checkoutData?.province || "",
+    district: checkoutData?.district || "",
+    ward: checkoutData?.ward || "",
+    detailAddress: checkoutData?.detailAddress || "",
     voucherCode: checkoutData?.voucherCode || appliedVoucher,
     paymentMethod: checkoutData?.paymentMethod || "COD",
   };
@@ -390,6 +417,7 @@ export function ProductInfo({
         onClose={() => setIsCheckoutModalOpen(false)}
         onSubmit={handleCheckoutSubmit}
         initialData={checkoutInitialData}
+        subtotal={subtotal}
       />
 
       {checkoutData ? (

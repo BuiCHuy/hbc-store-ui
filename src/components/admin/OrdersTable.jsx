@@ -4,10 +4,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from ".
 import { getAdminOrders } from "../../services/adminApi";
 
 const statusLabels = {
-  PENDING: "Chờ xử lý",
+  PENDING: "Đang xử lý",
   CONFIRMED: "Đã xác nhận",
   SHIPPING: "Đang giao",
-  DELIVERED: "Hoàn thành",
+  DELIVERED: "Đã giao",
   CANCELLED: "Đã hủy",
 };
 
@@ -21,7 +21,9 @@ const statusStyles = {
 
 function StatusBadge({ status }) {
   return (
-    <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${statusStyles[status]}`}>
+    <span
+      className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${statusStyles[status]}`}
+    >
       {statusLabels[status]}
     </span>
   );
@@ -87,9 +89,15 @@ export function OrdersTable() {
               orders.map((order) => (
                 <TableRow key={order.id} className="transition-colors hover:bg-purple-50/50">
                   <TableCell className="font-medium text-purple-600">{order.code}</TableCell>
-                  <TableCell className="font-medium text-gray-900">{order.customer_name}</TableCell>
-                  <TableCell className="text-gray-500">{new Date(order.order_date).toLocaleDateString("vi-VN")}</TableCell>
-                  <TableCell className="font-bold text-gray-900">{order.total_amount.toLocaleString("vi-VN")} đ</TableCell>
+                  <TableCell className="font-medium text-gray-900">
+                    {order.customer_name}
+                  </TableCell>
+                  <TableCell className="text-gray-500">
+                    {new Date(order.order_date).toLocaleDateString("vi-VN")}
+                  </TableCell>
+                  <TableCell className="font-bold text-gray-900">
+                    {order.total_amount.toLocaleString("vi-VN")} đ
+                  </TableCell>
                   <TableCell>
                     <StatusBadge status={order.status} />
                   </TableCell>
@@ -100,7 +108,10 @@ export function OrdersTable() {
         </Table>
       </div>
       <div className="border-t border-gray-200 bg-gray-50 p-4 text-center">
-        <Link to="/admin/orders" className="text-sm font-bold text-purple-600 transition-all hover:text-purple-800 hover:underline">
+        <Link
+          to="/admin/orders"
+          className="text-sm font-bold text-purple-600 transition-all hover:text-purple-800 hover:underline"
+        >
           Xem tất cả đơn hàng
         </Link>
       </div>

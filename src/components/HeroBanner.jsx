@@ -1,9 +1,14 @@
 import React from "react";
-import { ArrowRight, ShieldCheck, Truck, RotateCcw } from "lucide-react";
+import { ArrowRight, RotateCcw, ShieldCheck, Truck } from "lucide-react";
 import { Button } from "./ui/button";
 
 export function HeroBanner({ categories = [], onQuickCategory }) {
   const quickCategories = categories.slice(0, 4);
+
+  const jumpToFilter = (categoryId) => {
+    onQuickCategory?.(categoryId);
+    document.getElementById("category-filter")?.scrollIntoView({ behavior: "smooth" });
+  };
 
   return (
     <section className="relative h-[320px] overflow-hidden bg-slate-900 md:h-[380px]">
@@ -18,9 +23,7 @@ export function HeroBanner({ categories = [], onQuickCategory }) {
 
       <div className="user-container relative flex h-full items-center">
         <div className="max-w-2xl text-white">
-          <h1 className="mb-2 text-3xl font-bold leading-tight md:text-4xl">
-            Mô hình chính hãng cho người sưu tầm
-          </h1>
+          <h1 className="mb-2 text-3xl font-bold leading-tight md:text-4xl">Mô hình chính hãng cho người sưu tầm</h1>
           <p className="mb-4 max-w-xl text-sm text-slate-200 md:text-base">
             Chọn nhanh theo danh mục, lọc theo hãng và đặt hàng trực tiếp với thông tin rõ ràng.
           </p>
@@ -53,9 +56,7 @@ export function HeroBanner({ categories = [], onQuickCategory }) {
               size="sm"
               variant="outline"
               className="h-8 border-white/40 bg-white/10 px-4 text-xs text-white hover:bg-white/20"
-              onClick={() =>
-                document.getElementById("category-filter")?.scrollIntoView({ behavior: "smooth" })
-              }
+              onClick={() => document.getElementById("category-filter")?.scrollIntoView({ behavior: "smooth" })}
             >
               Xem danh mục
             </Button>
@@ -65,7 +66,7 @@ export function HeroBanner({ categories = [], onQuickCategory }) {
             <button
               type="button"
               className="rounded-md border border-white/30 bg-white/10 px-3 py-1.5 text-xs font-medium hover:bg-white/20"
-              onClick={() => onQuickCategory?.("all")}
+              onClick={() => jumpToFilter("all")}
             >
               Tất cả
             </button>
@@ -74,7 +75,7 @@ export function HeroBanner({ categories = [], onQuickCategory }) {
                 key={category.id}
                 type="button"
                 className="rounded-md border border-white/30 bg-white/10 px-3 py-1.5 text-xs font-medium hover:bg-white/20"
-                onClick={() => onQuickCategory?.(String(category.id))}
+                onClick={() => jumpToFilter(String(category.id))}
               >
                 {category.name}
               </button>

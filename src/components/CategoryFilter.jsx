@@ -8,11 +8,7 @@ const categoryIcons = {
   4: Wrench,
 };
 
-export function CategoryFilter({
-  categories = [],
-  selectedCategoryId,
-  onCategoryChange,
-}) {
+export function CategoryFilter({ categories = [], selectedCategoryId, onCategoryChange }) {
   const filterItems = [
     { id: "all", name: "Tất cả", icon: Sparkles },
     ...categories.map((category) => ({
@@ -23,21 +19,34 @@ export function CategoryFilter({
   ];
 
   return (
-    <section id="category-filter" className="bg-white border-y border-gray-100">
+    <section id="category-filter" className="border-y border-slate-200 bg-white">
       <div className="user-container py-3">
         <div className="flex gap-2 overflow-x-auto pb-1">
-          {filterItems.map(({ id, name, icon }) => (
+          {filterItems.map(({ id, name, icon, iconUrl }) => (
             <button
               key={id}
               type="button"
               onClick={() => onCategoryChange?.(id)}
-              className={`flex items-center gap-1.5 whitespace-nowrap rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
+              className={`flex items-center gap-2 whitespace-nowrap rounded-lg border px-4 py-2 text-sm font-semibold transition-colors ${
                 selectedCategoryId === id
-                  ? "bg-purple-600 text-white border-purple-600"
-                  : "bg-white text-gray-700 border-gray-200 hover:border-purple-300 hover:text-purple-700"
+                  ? "border-purple-600 bg-purple-600 text-white"
+                  : "border-slate-200 bg-white text-slate-700 hover:border-purple-300 hover:text-purple-700"
               }`}
             >
-              {React.createElement(icon, { className: "w-3.5 h-3.5" })}
+              {iconUrl ? (
+                <span className="flex h-5 w-5 items-center justify-center overflow-hidden rounded bg-slate-100">
+                  <img
+                    src={iconUrl}
+                    alt={name}
+                    className="h-full w-full object-contain"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                </span>
+              ) : (
+                React.createElement(icon, { className: "h-4 w-4" })
+              )}
               {name}
             </button>
           ))}

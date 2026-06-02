@@ -2,6 +2,44 @@ const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8080/api";
 const AUTH_STORAGE_KEY = "auth_user";
 const API_ROOT_URL = API_URL.replace(/\/api\/?$/, "");
 
+function normalizeApiErrorMessage(rawMessage) {
+  const message = String(rawMessage || "").trim();
+  const lower = message.toLowerCase();
+  if (!message) return "Yêu cầu thất bại";
+
+  if (lower.includes("failed to fetch") || lower.includes("networkerror")) {
+    return "Không thể kết nối máy chủ";
+  }
+  if (lower.includes("api request failed")) {
+    return "Yêu cầu thất bại";
+  }
+  if (lower.includes("unauthorized") || lower.includes("401")) {
+    return "Phiên đăng nhập không hợp lệ hoặc đã hết hạn";
+  }
+  if (lower.includes("forbidden") || lower.includes("403")) {
+    return "Bạn không có quyền thực hiện thao tác này";
+  }
+  if (lower.includes("access denied")) {
+    return "Truy cập bị từ chối";
+  }
+  if (lower.includes("invalid credentials")) {
+    return "Email hoặc mật khẩu không đúng";
+  }
+  if (lower.includes("email already exists")) {
+    return "Email đã tồn tại";
+  }
+  if (lower.includes("not found")) {
+    return "Không tìm thấy dữ liệu";
+  }
+  if (lower.includes("validation") || lower.includes("bad request")) {
+    return "Dữ liệu không hợp lệ";
+  }
+  if (lower.includes("timeout")) {
+    return "Máy chủ phản hồi quá chậm, vui lòng thử lại";
+  }
+  return message;
+}
+
 function getStoredToken() {
   try {
     const raw = localStorage.getItem(AUTH_STORAGE_KEY);
@@ -22,10 +60,14 @@ async function parseResponse(response) {
       typeof data === "string"
         ? data
         : data?.message || data?.error || "API request failed";
-    throw new Error(message);
+    throw new Error(normalizeApiErrorMessage(message));
   }
 
   return data;
+}
+
+export function getErrorMessageVi(error, fallback = "Đã xảy ra lỗi") {
+  return normalizeApiErrorMessage(error?.message || fallback);
 }
 
 export async function apiRequest(path, options = {}) {

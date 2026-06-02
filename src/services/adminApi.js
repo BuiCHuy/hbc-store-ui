@@ -206,8 +206,61 @@ export async function confirmPayOSReturn(params) {
   return apiGet(`/payments/payos/return?${query}`, { skipAuth: true });
 }
 
+export async function syncPayOSPaymentStatus(payment) {
+  const paymentLinkId = payment?.requestId || payment?.paymentLinkId || payment?.id;
+  const orderCode = payment?.orderId || payment?.orderCode || payment?.externalId;
+  if (!paymentLinkId && !orderCode) return null;
+
+  return confirmPayOSReturn({
+    ...(paymentLinkId ? { id: paymentLinkId } : {}),
+    ...(orderCode ? { orderCode } : {}),
+  });
+}
+
 export async function getPayOSSettings() {
   return apiGet("/payments/payos/settings");
+}
+
+export function normalizeShippingSettings(settings) {
+  return {
+    northFee: Number(settings.northFee || 0),
+    centralFee: Number(settings.centralFee || 0),
+    southFee: Number(settings.southFee || 0),
+    freeShippingThreshold: Number(settings.freeShippingThreshold || 0),
+  };
+}
+
+export async function getShippingSettings() {
+  const data = await apiGet("/shipping/settings", { skipAuth: true });
+  return normalizeShippingSettings(data);
+}
+
+export async function updateShippingSettings(settings) {
+  const data = await apiPut("/admin/shipping/settings", {
+    northFee: Number(settings.northFee || 0),
+    centralFee: Number(settings.centralFee || 0),
+    southFee: Number(settings.southFee || 0),
+    freeShippingThreshold: Number(settings.freeShippingThreshold || 0),
+  });
+  return normalizeShippingSettings(data);
+}
+
+export async function quoteShipping({ subtotal, province, shippingAddress }) {
+  const data = await apiPost(
+    "/shipping/quote",
+    {
+      subtotal: Number(subtotal || 0),
+      province: province || "",
+      shippingAddress: shippingAddress || "",
+    },
+    { skipAuth: true }
+  );
+  return {
+    shippingFee: Number(data.shippingFee || 0),
+    region: data.region || "north",
+    regionLabel: data.regionLabel || "Miền Bắc",
+    freeShipping: Boolean(data.freeShipping),
+  };
 }
 
 export function normalizeCoupon(coupon) {

@@ -11,6 +11,8 @@ import {
   createPayOSPayment,
   getCoupons,
   getOrderById,
+  quoteShipping,
+  syncPayOSPaymentStatus,
 } from "../services/adminApi";
 import { useAuth } from "../contexts/AuthContext";
 import { GuestCheckoutModal } from "../components/GuestCheckoutModal";
@@ -40,6 +42,7 @@ export function ShoppingCart() {
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
   const [pendingCheckoutItemIds, setPendingCheckoutItemIds] = useState([]);
+  const [shippingFee, setShippingFee] = useState(0);
 
   const formatPrice = (price) => new Intl.NumberFormat("vi-VN").format(price);
 
@@ -71,6 +74,9 @@ export function ShoppingCart() {
       if (!active) return;
       setIsCheckingPayment(true);
       try {
+        if (momoPayment) {
+          await syncPayOSPaymentStatus(momoPayment);
+        }
         const latestOrder = await getOrderById(createdOrder.id);
         if (!active) return;
         if (latestOrder.status === "CANCELLED") {
@@ -91,11 +97,6 @@ export function ShoppingCart() {
           setIsMomoPaymentModalOpen(false);
           setIsOrderSuccessModalOpen(true);
           toast.success("Đã xác nhận thanh toán thành công");
-        } else if (latestOrder.status === "CANCELLED") {
-          setCreatedOrder(latestOrder);
-          setIsMomoPaymentModalOpen(false);
-          toast.error("Đơn đã bị hủy do quá hạn thanh toán");
-          toast.success("Đã xác nhận thanh toán thành công");
         }
       } catch {
         // silent retry
@@ -109,12 +110,29 @@ export function ShoppingCart() {
       clearInterval(interval);
       setIsCheckingPayment(false);
     };
-  }, [isMomoPaymentModalOpen, createdOrder?.id, pendingCheckoutItemIds]);
+  }, [isMomoPaymentModalOpen, createdOrder?.id, momoPayment, pendingCheckoutItemIds]);
 
   const selectedCartItems = cartItems.filter((item) => selectedItems.includes(item.id));
   const subtotal = selectedCartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
-  const shippingFee = subtotal === 0 ? 0 : subtotal > 1000000 ? 0 : 35000;
   const total = subtotal + shippingFee - discount;
+
+  useEffect(() => {
+    let mounted = true;
+    quoteShipping({
+      subtotal,
+      province: checkoutData?.province || "",
+      shippingAddress: checkoutData?.address || user?.address || "",
+    })
+      .then((quote) => {
+        if (mounted) setShippingFee(quote.shippingFee);
+      })
+      .catch(() => {
+        if (mounted) setShippingFee(0);
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [subtotal, checkoutData?.province, checkoutData?.address, user?.address]);
 
   const applyCouponCode = (rawCode) => {
     const code = String(rawCode || "").trim().toUpperCase();
@@ -289,7 +307,11 @@ export function ShoppingCart() {
     fullName: user?.name || "",
     phoneNumber: user?.phoneNumber || "",
     email: user?.email || "",
-    address: user?.address || "",
+    address: checkoutData?.address || user?.address || "",
+    province: checkoutData?.province || "",
+    district: checkoutData?.district || "",
+    ward: checkoutData?.ward || "",
+    detailAddress: checkoutData?.detailAddress || "",
     voucherCode: checkoutData?.voucherCode || appliedVoucher || promoCode,
     paymentMethod: checkoutData?.paymentMethod || "COD",
   };
@@ -478,6 +500,7 @@ export function ShoppingCart() {
         onClose={() => setIsCheckoutModalOpen(false)}
         onSubmit={handleCheckoutSubmit}
         initialData={checkoutInitialData}
+        subtotal={subtotal}
       />
 
       {checkoutData ? (

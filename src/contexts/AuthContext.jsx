@@ -10,8 +10,7 @@ function normalizeBackendUser(backendUser, token) {
     id: backendUser.id,
     email: backendUser.email || "",
     name: backendUser.fullName || backendUser.name || "",
-    phoneNumber:
-      backendUser.phoneNumber || backendUser.phone || backendUser.phone_number || "",
+    phoneNumber: backendUser.phoneNumber || backendUser.phone || backendUser.phone_number || "",
     address: backendUser.address || backendUser.defaultAddress || "",
     role: backendUser.role === "ADMIN" ? "admin" : "user",
     status: backendUser.status,
@@ -95,14 +94,14 @@ export function AuthProvider({ children }) {
       });
       return {
         success: true,
-        message: data?.message || "Dang ky thanh cong",
+        message: data?.message || "Đăng ký thành công",
         requiresEmailVerification: !!data?.requiresEmailVerification,
       };
     } catch (error) {
       console.error("Lỗi đăng ký khách hàng:", error);
       return {
         success: false,
-        message: error?.message || "Dang ky that bai",
+        message: error?.message || "Đăng ký thất bại",
       };
     }
   };

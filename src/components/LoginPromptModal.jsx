@@ -16,12 +16,9 @@ export function LoginPromptModal({ isOpen, onClose }) {
               <ShoppingCart className="h-6 w-6 text-purple-600" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-gray-900">
-                Đăng nhập để xem giỏ hàng
-              </h2>
+              <h2 className="text-xl font-bold text-gray-900">Đăng nhập để xem giỏ hàng</h2>
               <p className="mt-1 text-sm text-gray-600">
-                Vui lòng đăng nhập hoặc tạo tài khoản để quản lý giỏ hàng và đặt
-                hàng của bạn.
+                Vui lòng đăng nhập hoặc tạo tài khoản để quản lý giỏ hàng và đặt hàng của bạn.
               </p>
             </div>
           </div>
@@ -36,9 +33,7 @@ export function LoginPromptModal({ isOpen, onClose }) {
 
         <div className="mt-6 grid gap-3">
           <Link to="/login" onClick={onClose}>
-            <Button className="h-11 w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white">
-              Đăng nhập ngay
-            </Button>
+            <Button className="h-11 w-full bg-gradient-to-r from-purple-600 to-blue-600 text-white">Đăng nhập ngay</Button>
           </Link>
           <Link to="/register" onClick={onClose}>
             <Button variant="outline" className="h-11 w-full">

@@ -61,7 +61,7 @@ export function OrderSuccessModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md overflow-hidden rounded-3xl border-none p-0 shadow-2xl">
+      <DialogContent size="md" className="overflow-hidden rounded-xl border-none p-0 shadow-2xl">
         <DialogTitle className="sr-only">Đặt hàng thành công</DialogTitle>
         <DialogDescription className="sr-only">Đơn hàng của bạn đã được đặt thành công.</DialogDescription>
 

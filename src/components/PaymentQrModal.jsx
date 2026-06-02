@@ -13,8 +13,12 @@ function formatVnd(value) {
 
 function formatRemaining(totalSeconds) {
   if (totalSeconds <= 0) return "00:00";
-  const minutes = Math.floor(totalSeconds / 60).toString().padStart(2, "0");
-  const seconds = Math.floor(totalSeconds % 60).toString().padStart(2, "0");
+  const minutes = Math.floor(totalSeconds / 60)
+    .toString()
+    .padStart(2, "0");
+  const seconds = Math.floor(totalSeconds % 60)
+    .toString()
+    .padStart(2, "0");
   return `${minutes}:${seconds}`;
 }
 
@@ -47,8 +51,7 @@ export function PaymentQrModal({
     return () => clearInterval(timer);
   }, [isOpen, expiryTimestamp, paymentStatus]);
 
-  const isExpired =
-    paymentStatus !== "PAID" && expiryTimestamp ? expiryTimestamp <= Date.now() : false;
+  const isExpired = paymentStatus !== "PAID" && expiryTimestamp ? expiryTimestamp <= Date.now() : false;
 
   const handleOpenPayOS = () => {
     if (!payUrl) return;
@@ -60,7 +63,7 @@ export function PaymentQrModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md">
+      <DialogContent size="md">
         <DialogHeader>
           <DialogTitle>Thanh toán PayOS</DialogTitle>
         </DialogHeader>
@@ -81,17 +84,13 @@ export function PaymentQrModal({
 
           <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-700">
             Trạng thái thanh toán:{" "}
-            <span className="font-semibold">
-              {paymentStatus === "PAID" ? "Đã thanh toán" : "Chờ thanh toán"}
-            </span>
+            <span className="font-semibold">{paymentStatus === "PAID" ? "Đã thanh toán" : "Chờ thanh toán"}</span>
           </div>
 
           {paymentStatus !== "PAID" && paymentExpiredAt ? (
             <div
               className={`rounded-lg border p-3 text-xs ${
-                isExpired
-                  ? "border-red-200 bg-red-50 text-red-700"
-                  : "border-amber-200 bg-amber-50 text-amber-700"
+                isExpired ? "border-red-200 bg-red-50 text-red-700" : "border-amber-200 bg-amber-50 text-amber-700"
               }`}
             >
               {isExpired ? (
@@ -99,12 +98,9 @@ export function PaymentQrModal({
               ) : (
                 <>
                   <p>
-                    Đếm ngược tự hủy đơn:{" "}
-                    <span className="font-semibold">{formatRemaining(remainingSeconds)}</span>
+                    Đếm ngược tự hủy đơn: <span className="font-semibold">{formatRemaining(remainingSeconds)}</span>
                   </p>
-                  <p className="mt-1">
-                    Hạn thanh toán: {new Date(paymentExpiredAt).toLocaleString("vi-VN")}
-                  </p>
+                  <p className="mt-1">Hạn thanh toán: {new Date(paymentExpiredAt).toLocaleString("vi-VN")}</p>
                 </>
               )}
             </div>
@@ -112,19 +108,12 @@ export function PaymentQrModal({
 
           <div className="flex gap-2">
             {payUrl ? (
-              <Button
-                className="flex-1 bg-purple-600 text-white hover:bg-purple-700"
-                onClick={handleOpenPayOS}
-              >
+              <Button className="flex-1 bg-purple-600 text-white hover:bg-purple-700" onClick={handleOpenPayOS}>
                 <ExternalLink className="mr-2 h-4 w-4" />
                 Mở cổng PayOS
               </Button>
             ) : null}
-            <Button
-              variant="outline"
-              onClick={onClose}
-              className={payUrl ? "flex-1" : "w-full"}
-            >
+            <Button variant="outline" onClick={onClose} className={payUrl ? "flex-1" : "w-full"}>
               Đóng
             </Button>
           </div>

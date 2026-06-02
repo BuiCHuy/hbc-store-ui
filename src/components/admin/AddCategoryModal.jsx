@@ -21,7 +21,8 @@ import { Button } from "../ui/button";
 import { Label } from "../ui/label";
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
-import { FolderOpen, FileText, Save, X } from "lucide-react";
+import { FolderOpen, FileText, Loader2, Save, Upload, X } from "lucide-react";
+import { uploadProductImages } from "../../hooks/useCatalog";
 
 export function AddCategoryModal({
   isOpen,
@@ -31,22 +32,24 @@ export function AddCategoryModal({
   title = "Thêm danh mục mới",
   submitLabel = "Lưu danh mục",
 }) {
-  const [formData, setFormData] = useState({ name: "", description: "" });
+  const [formData, setFormData] = useState({ name: "", description: "", iconUrl: "" });
   const [errors, setErrors] = useState({});
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
     setFormData({
       name: initialData?.name || "",
       description: initialData?.description || "",
+      iconUrl: initialData?.iconUrl || "",
     });
     setErrors({});
     setShowConfirmDialog(false);
   }, [isOpen, initialData]);
 
   const handleClose = () => {
-    setFormData({ name: "", description: "" });
+    setFormData({ name: "", description: "", iconUrl: "" });
     setErrors({});
     setShowConfirmDialog(false);
     onClose();
@@ -59,6 +62,25 @@ export function AddCategoryModal({
       return;
     }
     setShowConfirmDialog(true);
+  };
+
+  const handleIconUpload = async (event) => {
+    const files = Array.from(event.target.files || []);
+    if (files.length === 0) return;
+    setIsUploading(true);
+    try {
+      const [url] = await uploadProductImages([files[0]]);
+      if (!url) return;
+      setFormData((prev) => ({ ...prev, iconUrl: url }));
+    } catch (error) {
+      setErrors((prev) => ({
+        ...prev,
+        iconUrl: error?.message || "Không thể tải ảnh lên",
+      }));
+    } finally {
+      setIsUploading(false);
+      event.target.value = "";
+    }
   };
 
   const handleConfirmSave = () => {
@@ -110,6 +132,37 @@ export function AddCategoryModal({
                   placeholder="Mô tả ngắn cho danh mục..."
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">URL ảnh danh mục</Label>
+              <Input
+                value={formData.iconUrl}
+                onChange={(e) => setFormData((p) => ({ ...p, iconUrl: e.target.value }))}
+                className="h-10"
+                placeholder="https://... hoặc để trống"
+              />
+              <div className="flex items-center gap-2">
+                <Input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleIconUpload}
+                  disabled={isUploading}
+                  className="h-10 cursor-pointer"
+                />
+                {isUploading ? (
+                  <span className="inline-flex items-center text-xs text-gray-500">
+                    <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                    Đang tải
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center text-xs text-gray-500">
+                    <Upload className="mr-1 h-3.5 w-3.5" />
+                    Chọn ảnh từ máy
+                  </span>
+                )}
+              </div>
+              {errors.iconUrl && <p className="text-xs text-red-600">{errors.iconUrl}</p>}
             </div>
           </div>
 

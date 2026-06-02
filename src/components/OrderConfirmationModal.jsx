@@ -39,7 +39,7 @@ export function OrderConfirmationModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={isSubmitting ? undefined : onClose}>
-      <DialogContent className="max-h-[90vh] max-w-5xl overflow-y-auto p-0">
+      <DialogContent size="xl" className="max-h-[90vh] overflow-y-auto p-0">
         <DialogDescription className="sr-only">
           Xác nhận đơn hàng với {cartItems.length} sản phẩm, tổng giá trị {formatPrice(total)}
         </DialogDescription>

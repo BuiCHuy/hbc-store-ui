@@ -6,28 +6,54 @@ import { Textarea } from "./ui/textarea";
 import { Label } from "./ui/label";
 import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
 import { User, Phone, Mail, MapPin, Banknote, Wallet, Ticket } from "lucide-react";
+import {
+  buildShippingAddress,
+  isDistrictEnabledProvince,
+  parseShippingAddress,
+  VIETNAM_PROVINCES,
+} from "../lib/shipping";
+import { loadDistrictOptions, loadWardOptions } from "../lib/vietnamAddress";
+import { quoteShipping } from "../services/adminApi";
 
 const defaultFormData = {
   fullName: "",
   phoneNumber: "",
   email: "",
+  province: "",
+  district: "",
+  ward: "",
+  detailAddress: "",
   address: "",
   voucherCode: "",
   paymentMethod: "COD",
 };
 
-export function GuestCheckoutModal({ isOpen, onClose, onSubmit, initialData }) {
-  const normalizedInitialData = useMemo(
-    () => ({
+export function GuestCheckoutModal({ isOpen, onClose, onSubmit, initialData, subtotal = 0 }) {
+  const normalizedInitialData = useMemo(() => {
+    const parsedAddress = parseShippingAddress(initialData?.address || "");
+    return {
       ...defaultFormData,
       ...(initialData || {}),
+      province: initialData?.province || parsedAddress.province,
+      district: initialData?.district || parsedAddress.district,
+      ward: initialData?.ward || parsedAddress.ward,
+      detailAddress: initialData?.detailAddress || parsedAddress.detailAddress,
       paymentMethod: initialData?.paymentMethod || "COD",
-    }),
-    [initialData]
-  );
+    };
+  }, [initialData]);
 
   const [formData, setFormData] = useState(defaultFormData);
   const [errors, setErrors] = useState({});
+  const [districtOptions, setDistrictOptions] = useState([]);
+  const [wardOptions, setWardOptions] = useState([]);
+  const [addressLoading, setAddressLoading] = useState(false);
+  const [addressError, setAddressError] = useState("");
+  const [shippingQuote, setShippingQuote] = useState({
+    shippingFee: 0,
+    regionLabel: "Chưa xác định",
+  });
+
+  const shouldShowDistrict = isDistrictEnabledProvince(formData.province);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -35,8 +61,90 @@ export function GuestCheckoutModal({ isOpen, onClose, onSubmit, initialData }) {
     setErrors({});
   }, [isOpen, normalizedInitialData]);
 
+  useEffect(() => {
+    if (!isOpen || !formData.province) {
+      setDistrictOptions([]);
+      setWardOptions([]);
+      return;
+    }
+
+    let mounted = true;
+    setAddressLoading(true);
+    setAddressError("");
+
+    const loadAddressOptions = async () => {
+      try {
+        const [districts, wards] = await Promise.all([
+          loadDistrictOptions(formData.province),
+          loadWardOptions(formData.province, formData.district),
+        ]);
+        if (!mounted) return;
+        setDistrictOptions(districts);
+        setWardOptions(wards);
+      } catch (error) {
+        if (!mounted) return;
+        setDistrictOptions([]);
+        setWardOptions([]);
+        setAddressError(error.message || "Không tải được dữ liệu địa chỉ.");
+      } finally {
+        if (mounted) setAddressLoading(false);
+      }
+    };
+
+    loadAddressOptions();
+
+    return () => {
+      mounted = false;
+    };
+  }, [isOpen, formData.province, formData.district]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let mounted = true;
+    const address = buildShippingAddress(
+      formData.detailAddress,
+      formData.ward,
+      shouldShowDistrict ? formData.district : "",
+      formData.province
+    );
+    quoteShipping({
+      subtotal,
+      province: formData.province,
+      shippingAddress: address,
+    })
+      .then((quote) => {
+        if (mounted) setShippingQuote(quote);
+      })
+      .catch(() => {
+        if (mounted) {
+          setShippingQuote({ shippingFee: 0, regionLabel: "Chưa xác định" });
+        }
+      });
+    return () => {
+      mounted = false;
+    };
+  }, [
+    isOpen,
+    subtotal,
+    formData.province,
+    formData.district,
+    formData.ward,
+    formData.detailAddress,
+    shouldShowDistrict,
+  ]);
+
   const handleInputChange = (field, value) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    setFormData((prev) => {
+      const next = { ...prev, [field]: value };
+      if (field === "province") {
+        next.district = "";
+        next.ward = "";
+      }
+      if (field === "district") {
+        next.ward = "";
+      }
+      return next;
+    });
     setErrors((prev) => ({ ...prev, [field]: undefined }));
   };
 
@@ -51,23 +159,44 @@ export function GuestCheckoutModal({ isOpen, onClose, onSubmit, initialData }) {
     if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       nextErrors.email = "Email không hợp lệ";
     }
-    if (!formData.address.trim()) nextErrors.address = "Vui lòng nhập địa chỉ nhận hàng";
+    if (!formData.province) nextErrors.province = "Vui lòng chọn tỉnh/thành phố";
+    if (shouldShowDistrict && !formData.district) nextErrors.district = "Vui lòng chọn quận/huyện";
+    if (!formData.ward) nextErrors.ward = "Vui lòng chọn phường/xã";
+    if (!formData.detailAddress.trim()) {
+      nextErrors.detailAddress = "Vui lòng nhập địa chỉ cụ thể";
+    }
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (validateForm()) onSubmit(formData);
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    if (!validateForm()) return;
+
+    const address = buildShippingAddress(
+      formData.detailAddress,
+      formData.ward,
+      shouldShowDistrict ? formData.district : "",
+      formData.province
+    );
+    onSubmit({
+      ...formData,
+      district: shouldShowDistrict ? formData.district : "",
+      address,
+    });
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto p-0">
+      <DialogContent size="lg" className="max-h-[90vh] overflow-y-auto p-0">
         <div className="sticky top-0 z-10 border-b border-gray-200 bg-white px-6 py-4">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-gray-900">Thông tin giao hàng</DialogTitle>
-            <p className="mt-1 text-sm text-gray-500">Vui lòng điền đầy đủ thông tin để hoàn tất đơn hàng</p>
+            <DialogTitle className="text-2xl font-bold text-gray-900">
+              Thông tin giao hàng
+            </DialogTitle>
+            <p className="mt-1 text-sm text-gray-500">
+              Chọn tỉnh/thành phố để hệ thống tính phí vận chuyển theo miền.
+            </p>
           </DialogHeader>
         </div>
 
@@ -123,18 +252,96 @@ export function GuestCheckoutModal({ isOpen, onClose, onSubmit, initialData }) {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="address">Địa chỉ nhận hàng *</Label>
+              <Label htmlFor="province">Tỉnh/Thành phố *</Label>
+              <div className="relative">
+                <MapPin className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                <select
+                  id="province"
+                  value={formData.province}
+                  onChange={(e) => handleInputChange("province", e.target.value)}
+                  className="h-12 w-full rounded-md border border-gray-300 bg-white pl-11 pr-3 text-sm outline-none focus:border-purple-500 focus:ring-[3px] focus:ring-purple-500/20"
+                >
+                  <option value="">Chọn tỉnh/thành phố</option>
+                  {VIETNAM_PROVINCES.map((province) => (
+                    <option key={province} value={province}>
+                      {province}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {errors.province && <p className="text-sm text-red-500">{errors.province}</p>}
+              {formData.province ? (
+                <p className="text-xs text-gray-500">
+                  Khu vực: {shippingQuote.regionLabel}. Phí dự kiến:{" "}
+                  {new Intl.NumberFormat("vi-VN").format(shippingQuote.shippingFee)} đ
+                </p>
+              ) : null}
+            </div>
+
+            {shouldShowDistrict ? (
+              <div className="space-y-2">
+                <Label htmlFor="district">Quận/Huyện *</Label>
+                <div className="relative">
+                  <MapPin className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                  <select
+                    id="district"
+                    value={formData.district}
+                    onChange={(e) => handleInputChange("district", e.target.value)}
+                    disabled={addressLoading}
+                    className="h-12 w-full rounded-md border border-gray-300 bg-white pl-11 pr-3 text-sm outline-none focus:border-purple-500 focus:ring-[3px] focus:ring-purple-500/20 disabled:bg-gray-50"
+                  >
+                    <option value="">Chọn quận/huyện</option>
+                    {districtOptions.map((district) => (
+                      <option key={district} value={district}>
+                        {district}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {errors.district && <p className="text-sm text-red-500">{errors.district}</p>}
+              </div>
+            ) : null}
+
+            <div className="space-y-2">
+              <Label htmlFor="ward">Phường/Xã *</Label>
+              <div className="relative">
+                <MapPin className="pointer-events-none absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+                <select
+                  id="ward"
+                  value={formData.ward}
+                  onChange={(e) => handleInputChange("ward", e.target.value)}
+                  disabled={!formData.province || addressLoading || (shouldShowDistrict && !formData.district)}
+                  className="h-12 w-full rounded-md border border-gray-300 bg-white pl-11 pr-3 text-sm outline-none focus:border-purple-500 focus:ring-[3px] focus:ring-purple-500/20 disabled:bg-gray-50"
+                >
+                  <option value="">
+                    {addressLoading ? "Đang tải phường/xã..." : "Chọn phường/xã"}
+                  </option>
+                  {wardOptions.map((ward) => (
+                    <option key={ward} value={ward}>
+                      {ward}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {errors.ward && <p className="text-sm text-red-500">{errors.ward}</p>}
+              {addressError && <p className="text-sm text-red-500">{addressError}</p>}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="detailAddress">Địa chỉ cụ thể *</Label>
               <div className="relative">
                 <MapPin className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
                 <Textarea
-                  id="address"
-                  placeholder="Số nhà, tên đường, phường/xã, quận/huyện, tỉnh/thành phố"
-                  value={formData.address}
-                  onChange={(e) => handleInputChange("address", e.target.value)}
+                  id="detailAddress"
+                  placeholder="Số nhà, tên đường, tên tòa nhà..."
+                  value={formData.detailAddress}
+                  onChange={(e) => handleInputChange("detailAddress", e.target.value)}
                   className="min-h-[100px] resize-none pl-11"
                 />
               </div>
-              {errors.address && <p className="text-sm text-red-500">{errors.address}</p>}
+              {errors.detailAddress && (
+                <p className="text-sm text-red-500">{errors.detailAddress}</p>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -165,7 +372,9 @@ export function GuestCheckoutModal({ isOpen, onClose, onSubmit, initialData }) {
                   <Wallet className="mt-0.5 h-5 w-5 text-blue-600" />
                   <span>
                     <span className="block font-semibold">Thanh toán khi nhận hàng (COD)</span>
-                    <span className="block text-sm text-gray-600">Thanh toán bằng tiền mặt khi nhận được hàng</span>
+                    <span className="block text-sm text-gray-600">
+                      Thanh toán bằng tiền mặt khi nhận được hàng
+                    </span>
                   </span>
                 </label>
                 <label className="flex cursor-pointer items-start gap-3 rounded-xl border-2 p-4">
@@ -173,7 +382,9 @@ export function GuestCheckoutModal({ isOpen, onClose, onSubmit, initialData }) {
                   <Banknote className="mt-0.5 h-5 w-5 text-green-600" />
                   <span>
                     <span className="block font-semibold">Chuyển khoản ngân hàng</span>
-                    <span className="block text-sm text-gray-600">Chuyển khoản trực tiếp đến tài khoản của cửa hàng</span>
+                    <span className="block text-sm text-gray-600">
+                      Thanh toán qua cổng PayOS
+                    </span>
                   </span>
                 </label>
               </RadioGroup>

@@ -33,7 +33,11 @@ import {
   Trash2,
   Loader2,
 } from "lucide-react";
-import { uploadProductImages } from "../../hooks/useCatalog";
+import {
+  getProductAttributeSuggestions,
+  getSubcategories,
+  uploadProductImages,
+} from "../../hooks/useCatalog";
 
 function AddProductModal({
   isOpen,
@@ -54,6 +58,7 @@ function AddProductModal({
     galleryUrls: [""],
     attributes: [{ name: "", value: "" }],
     categoryId: "",
+    subcategoryId: "",
     brandId: "",
     description: "",
   });
@@ -61,6 +66,8 @@ function AddProductModal({
   const [isUploadingThumbnail, setIsUploadingThumbnail] = useState(false);
   const [uploadingGalleryIndex, setUploadingGalleryIndex] = useState(null);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
+  const [attributeSuggestions, setAttributeSuggestions] = useState({});
+  const [subcategoryOptions, setSubcategoryOptions] = useState([]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -73,6 +80,7 @@ function AddProductModal({
         galleryUrls: [""],
         attributes: [{ name: "", value: "" }],
         categoryId: "",
+        subcategoryId: "",
         brandId: "",
         description: "",
       });
@@ -95,20 +103,77 @@ function AddProductModal({
         stock: String(initialData.stockQuantity ?? initialData.stock ?? ""),
         imageUrl: initialData.image || initialData.thumbnailUrl || "",
         galleryUrls: initialGallery.length > 0 ? initialGallery : [""],
-        attributes: initialAttributes.length > 0 ? initialAttributes : [{ name: "", value: "" }],
+        attributes:
+          initialAttributes.length > 0 ? initialAttributes : [{ name: "", value: "" }],
         categoryId: String(initialData.category_id ?? initialData.categoryId ?? ""),
+        subcategoryId: String(initialData.subcategory_id ?? initialData.subcategoryId ?? ""),
         brandId: String(initialData.brand_id ?? initialData.brandId ?? ""),
         description: initialData.description || "",
       });
     }
     setErrors({});
     setShowConfirmDialog(false);
+    setAttributeSuggestions({});
+    setSubcategoryOptions([]);
   }, [isOpen, initialData]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const categoryId = String(formData.categoryId || "").trim();
+    if (!categoryId) {
+      setAttributeSuggestions({});
+      return;
+    }
+    let active = true;
+    getProductAttributeSuggestions(categoryId)
+      .then((data) => {
+        if (!active) return;
+        setAttributeSuggestions(data || {});
+      })
+      .catch(() => {
+        if (!active) return;
+        setAttributeSuggestions({});
+      });
+    return () => {
+      active = false;
+    };
+  }, [isOpen, formData.categoryId]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const categoryId = String(formData.categoryId || "").trim();
+    if (!categoryId) {
+      setSubcategoryOptions([]);
+      setFormData((prev) => ({ ...prev, subcategoryId: "" }));
+      return;
+    }
+    let active = true;
+    getSubcategories(categoryId)
+      .then((items) => {
+        if (!active) return;
+        const options = items.filter((item) => item.status !== "INACTIVE");
+        setSubcategoryOptions(options);
+        setFormData((prev) => {
+          if (!prev.subcategoryId) return prev;
+          const exists = options.some((item) => String(item.id) === String(prev.subcategoryId));
+          return exists ? prev : { ...prev, subcategoryId: "" };
+        });
+      })
+      .catch(() => {
+        if (!active) return;
+        setSubcategoryOptions([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [isOpen, formData.categoryId]);
 
   const validate = () => {
     const next = {};
     if (!formData.name.trim()) next.name = "Vui lòng nhập tên sản phẩm";
-    if (!formData.price || Number(formData.price) <= 0) next.price = "Giá bán phải lớn hơn 0";
+    if (!formData.price || Number(formData.price) <= 0) {
+      next.price = "Giá bán phải lớn hơn 0";
+    }
     if (formData.stock === "" || Number(formData.stock) < 0) {
       next.stock = "Số lượng tồn kho không hợp lệ";
     }
@@ -133,11 +198,9 @@ function AddProductModal({
       const [url] = await uploadProductImages([files[0]]);
       setFormData((prev) => {
         if (!url) return prev;
-        const hasInGallery = prev.galleryUrls.some((item) => item.trim() === url.trim());
         return {
           ...prev,
           imageUrl: url,
-          galleryUrls: hasInGallery ? prev.galleryUrls : [url, ...prev.galleryUrls],
         };
       });
     } catch (error) {
@@ -208,9 +271,33 @@ function AddProductModal({
     }));
   };
 
+  const suggestionKeys = Object.keys(attributeSuggestions || {});
+  const GRADE_SUBCATEGORY_KEYWORDS = ["HG", "RG", "MG", "PG", "SD", "MGEX", "RE/100", "FM"];
+  const extractGradeFromSubcategory = (name) => {
+    const normalized = String(name || "").trim().toUpperCase();
+    if (!normalized) return null;
+    return (
+      GRADE_SUBCATEGORY_KEYWORDS.find(
+        (keyword) =>
+          normalized === keyword ||
+          normalized.startsWith(`${keyword} `) ||
+          normalized.includes(` ${keyword} `)
+      ) || null
+    );
+  };
+  const getSuggestedValues = (name) => {
+    const direct = attributeSuggestions[name];
+    if (Array.isArray(direct)) return direct;
+    const normalized = String(name || "").trim().toLowerCase();
+    const matchedKey = suggestionKeys.find((key) => key.trim().toLowerCase() === normalized);
+    return matchedKey ? attributeSuggestions[matchedKey] || [] : [];
+  };
+
   const removeAttributeRow = (index) => {
     setFormData((prev) => {
-      if (prev.attributes.length === 1) return { ...prev, attributes: [{ name: "", value: "" }] };
+      if (prev.attributes.length === 1) {
+        return { ...prev, attributes: [{ name: "", value: "" }] };
+      }
       return { ...prev, attributes: prev.attributes.filter((_, i) => i !== index) };
     });
   };
@@ -218,16 +305,31 @@ function AddProductModal({
   const buildPayload = () => {
     const normalizedGallery = formData.galleryUrls.map((url) => url.trim()).filter(Boolean);
     const thumbnail = formData.imageUrl.trim();
-    const imageUrls =
-      thumbnail && !normalizedGallery.includes(thumbnail)
-        ? [thumbnail, ...normalizedGallery]
-        : normalizedGallery;
-    const attributes = formData.attributes
+    const imageUrls = normalizedGallery.filter((url) => !thumbnail || url !== thumbnail);
+    let attributes = formData.attributes
       .map((item) => ({
         name: (item.name || "").trim(),
         value: (item.value || "").trim(),
       }))
       .filter((item) => item.name && item.value);
+
+    const selectedSubcategory = subcategoryOptions.find(
+      (item) => String(item.id) === String(formData.subcategoryId || "")
+    );
+    const detectedGrade = selectedSubcategory
+      ? extractGradeFromSubcategory(selectedSubcategory.name)
+      : null;
+    if (detectedGrade) {
+      const gradeValue = detectedGrade;
+      const gradeIdx = attributes.findIndex(
+        (item) => String(item.name || "").trim().toLowerCase() === "grade"
+      );
+      if (gradeIdx >= 0) {
+        attributes[gradeIdx] = { ...attributes[gradeIdx], value: gradeValue };
+      } else {
+        attributes = [{ name: "Grade", value: gradeValue }, ...attributes];
+      }
+    }
 
     return {
       ...formData,
@@ -235,6 +337,7 @@ function AddProductModal({
       stock: String(formData.stock),
       imageUrls,
       attributes,
+      subcategoryId: formData.subcategoryId || "",
     };
   };
 
@@ -333,7 +436,9 @@ function AddProductModal({
                     ))}
                   </select>
                 </div>
-                {errors.categoryId && <p className="text-xs text-red-600">{errors.categoryId}</p>}
+                {errors.categoryId && (
+                  <p className="text-xs text-red-600">{errors.categoryId}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -359,6 +464,24 @@ function AddProductModal({
               </div>
 
               <div className="space-y-2 md:col-span-2">
+                <Label className="text-sm font-semibold">Danh mục con</Label>
+                <select
+                  value={formData.subcategoryId}
+                  onChange={(e) =>
+                    setFormData((p) => ({ ...p, subcategoryId: e.target.value }))
+                  }
+                  className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-sm outline-none focus:border-purple-500 focus:ring-[3px] focus:ring-purple-500/20"
+                >
+                  <option value="">Không chọn</option>
+                  {subcategoryOptions.map((item) => (
+                    <option key={item.id} value={String(item.id)}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-2 md:col-span-2">
                 <Label className="text-sm font-semibold">Ảnh đại diện</Label>
                 <Input
                   value={formData.imageUrl}
@@ -375,7 +498,9 @@ function AddProductModal({
                     className="h-10 cursor-pointer"
                   />
                   {isUploadingThumbnail && (
-                    <span className="whitespace-nowrap text-xs text-gray-500">Đang tải...</span>
+                    <span className="whitespace-nowrap text-xs text-gray-500">
+                      Đang tải...
+                    </span>
                   )}
                 </div>
                 {errors.imageUrl && <p className="text-xs text-red-600">{errors.imageUrl}</p>}
@@ -417,13 +542,17 @@ function AddProductModal({
                           className="h-10 cursor-pointer"
                         />
                         {uploadingGalleryIndex === index && (
-                          <span className="whitespace-nowrap text-xs text-gray-500">Đang tải...</span>
+                          <span className="whitespace-nowrap text-xs text-gray-500">
+                            Đang tải...
+                          </span>
                         )}
                       </div>
                     </div>
                   ))}
                 </div>
-                {errors.galleryUrls && <p className="text-xs text-red-600">{errors.galleryUrls}</p>}
+                {errors.galleryUrls && (
+                  <p className="text-xs text-red-600">{errors.galleryUrls}</p>
+                )}
               </div>
 
               <div className="space-y-2 md:col-span-2">
@@ -434,19 +563,39 @@ function AddProductModal({
                     Thêm thuộc tính
                   </Button>
                 </div>
+                {suggestionKeys.length > 0 && (
+                  <p className="text-xs text-gray-500">
+                    Gợi ý theo danh mục: {suggestionKeys.join(", ")}
+                  </p>
+                )}
                 <div className="space-y-2">
                   {formData.attributes.map((attr, index) => (
-                    <div key={index} className="grid grid-cols-1 gap-2 rounded-md border border-gray-200 p-3 md:grid-cols-[1fr_1fr_auto]">
+                    <div
+                      key={index}
+                      className="grid grid-cols-1 gap-2 rounded-md border border-gray-200 p-3 md:grid-cols-[1fr_1fr_auto]"
+                    >
                       <Input
                         value={attr.name}
                         onChange={(e) => updateAttribute(index, "name", e.target.value)}
                         placeholder="Tên thuộc tính (VD: Tỷ lệ)"
+                        list={`attr-name-suggest-${index}`}
                       />
+                      <datalist id={`attr-name-suggest-${index}`}>
+                        {suggestionKeys.map((key) => (
+                          <option key={key} value={key} />
+                        ))}
+                      </datalist>
                       <Input
                         value={attr.value}
                         onChange={(e) => updateAttribute(index, "value", e.target.value)}
                         placeholder="Giá trị (VD: 1/6)"
+                        list={`attr-value-suggest-${index}`}
                       />
+                      <datalist id={`attr-value-suggest-${index}`}>
+                        {getSuggestedValues(attr.name).map((value) => (
+                          <option key={`${attr.name}-${value}`} value={value} />
+                        ))}
+                      </datalist>
                       <Button
                         type="button"
                         variant="outline"
@@ -475,12 +624,26 @@ function AddProductModal({
           </div>
 
           <DialogFooter className="gap-2 border-t border-gray-100 pt-4">
-            <Button type="button" variant="outline" onClick={resetAndClose} disabled={isSubmitting} className="h-10 px-5">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={resetAndClose}
+              disabled={isSubmitting}
+              className="h-10 px-5"
+            >
               <X className="mr-2 h-4 w-4" />
               Hủy
             </Button>
-            <Button type="submit" disabled={isSubmitting} className="h-10 bg-blue-600 px-6 text-white hover:bg-blue-700">
-              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+            <Button
+              type="submit"
+              disabled={isSubmitting}
+              className="h-10 bg-blue-600 px-6 text-white hover:bg-blue-700"
+            >
+              {isSubmitting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="mr-2 h-4 w-4" />
+              )}
               {isSubmitting ? "Đang lưu..." : submitLabel}
             </Button>
           </DialogFooter>

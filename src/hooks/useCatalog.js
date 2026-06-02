@@ -14,6 +14,7 @@ function normalizeCategory(category) {
     id: category.id,
     name: category.name,
     description: category.description,
+    iconUrl: toAbsoluteApiUrl(category.iconUrl || category.icon_url || ""),
     status: category.status,
   };
 }
@@ -67,6 +68,8 @@ function normalizeProduct(product) {
     brand_id: product.brandId,
     category: product.categoryName || product.category,
     category_id: product.categoryId || product.category_id,
+    subcategory: product.subcategoryName || product.subcategory || "",
+    subcategory_id: product.subcategoryId || product.subcategory_id || null,
     price: Number(product.price || 0),
     originalPrice: product.originalPrice,
     description: product.description,
@@ -195,9 +198,28 @@ function applyPromotionsToProducts(products, promotions) {
   });
 }
 
-export function useCatalog(searchTerm = "") {
+function buildProductQuery({ searchTerm, categoryId, subcategoryId, attributes = {}, page = 0, size = 20 }) {
+  const params = new URLSearchParams();
+  if (searchTerm) params.set("search", searchTerm);
+  if (categoryId && categoryId !== "all") params.set("categoryId", String(categoryId));
+  if (subcategoryId && subcategoryId !== "all") params.set("subcategoryId", String(subcategoryId));
+  Object.entries(attributes || {}).forEach(([key, value]) => {
+    if (!key || !value || value === "all") return;
+    params.set(`attr.${key}`, value);
+  });
+  params.set("page", String(page));
+  params.set("size", String(size));
+  return `/products?${params.toString()}`;
+}
+
+export function useCatalog(searchTerm = "", filters = {}) {
+  const selectedCategoryId = filters.categoryId || "all";
+  const selectedSubcategoryId = filters.subcategoryId || "all";
+  const selectedAttributes = filters.attributes || {};
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
+  const [brandFacets, setBrandFacets] = useState([]);
+  const [attributeFacets, setAttributeFacets] = useState({});
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [error, setError] = useState(null);
@@ -218,18 +240,38 @@ export function useCatalog(searchTerm = "") {
         const query = String(searchTerm || "").trim();
         const categoryPromise = apiGet("/categories", { skipAuth: true });
         const promotionPromise = apiGet("/promotions", { skipAuth: true });
+        const facetQuery =
+          selectedCategoryId && selectedCategoryId !== "all"
+            ? `/products/facets?categoryId=${encodeURIComponent(selectedCategoryId)}${
+                selectedSubcategoryId && selectedSubcategoryId !== "all"
+                  ? `&subcategoryId=${encodeURIComponent(selectedSubcategoryId)}`
+                  : ""
+              }`
+            : "/products/facets";
+        const facetPromise = apiGet(facetQuery, { skipAuth: true });
         const productPromise = query
           ? apiPost(
               "/chat",
               { message: query, sessionId: buildSearchSession("catalog-search", query) },
               { skipAuth: true }
             )
-          : apiGet("/products?page=0&size=20", { skipAuth: true });
+          : apiGet(
+              buildProductQuery({
+                searchTerm: query,
+                categoryId: selectedCategoryId,
+                subcategoryId: selectedSubcategoryId,
+                attributes: selectedAttributes,
+                page: 0,
+                size: 20,
+              }),
+              { skipAuth: true }
+            );
 
-        const [categoryData, productData, promotionData] = await Promise.all([
+        const [categoryData, productData, promotionData, facetData] = await Promise.all([
           categoryPromise,
           productPromise,
           promotionPromise,
+          facetPromise,
         ]);
 
         if (!isMounted) return;
@@ -251,6 +293,8 @@ export function useCatalog(searchTerm = "") {
 
         setCategories(activeCategories);
         setProducts(pricedProducts);
+        setBrandFacets(Array.isArray(facetData?.brands) ? facetData.brands : []);
+        setAttributeFacets(facetData?.attributes && typeof facetData.attributes === "object" ? facetData.attributes : {});
         if (!query) {
           const totalPages = Number(productData?.totalPages ?? 1);
           setPage(0);
@@ -269,6 +313,8 @@ export function useCatalog(searchTerm = "") {
         if (!isMounted) return;
         setCategories([]);
         setProducts([]);
+        setBrandFacets([]);
+        setAttributeFacets({});
         setPage(0);
         setHasMore(false);
         pageRef.current = 0;
@@ -287,7 +333,7 @@ export function useCatalog(searchTerm = "") {
     return () => {
       isMounted = false;
     };
-  }, [searchTerm]);
+  }, [searchTerm, selectedCategoryId, selectedSubcategoryId, JSON.stringify(selectedAttributes)]);
 
   const loadMoreProducts = async () => {
     const query = String(searchTerm || "").trim();
@@ -296,7 +342,17 @@ export function useCatalog(searchTerm = "") {
     try {
       const nextPage = page + 1;
       const [productData, promotionData] = await Promise.all([
-        apiGet(`/products?page=${nextPage}&size=20`, { skipAuth: true }),
+        apiGet(
+          buildProductQuery({
+            searchTerm: query,
+            categoryId: selectedCategoryId,
+            subcategoryId: selectedSubcategoryId,
+            attributes: selectedAttributes,
+            page: nextPage,
+            size: 20,
+          }),
+          { skipAuth: true }
+        ),
         apiGet("/promotions", { skipAuth: true }),
       ]);
       const promotions = toArray(promotionData).map(normalizePromotion);
@@ -326,7 +382,17 @@ export function useCatalog(searchTerm = "") {
       while (hasMoreRef.current) {
         const nextPage = pageRef.current + 1;
         const [productData, promotionData] = await Promise.all([
-          apiGet(`/products?page=${nextPage}&size=20`, { skipAuth: true }),
+          apiGet(
+            buildProductQuery({
+            searchTerm: query,
+            categoryId: selectedCategoryId,
+            subcategoryId: selectedSubcategoryId,
+            attributes: selectedAttributes,
+            page: nextPage,
+            size: 20,
+            }),
+            { skipAuth: true }
+          ),
           apiGet("/promotions", { skipAuth: true }),
         ]);
         const promotions = toArray(promotionData).map(normalizePromotion);
@@ -350,8 +416,20 @@ export function useCatalog(searchTerm = "") {
   };
 
   return useMemo(
-    () => ({ categories, products, isLoading, isLoadingMore, hasMore, loadMoreProducts, loadAllProducts, error, searchMeta }),
-    [categories, products, isLoading, isLoadingMore, hasMore, error, searchMeta]
+    () => ({
+      categories,
+      products,
+      brandFacets,
+      attributeFacets,
+      isLoading,
+      isLoadingMore,
+      hasMore,
+      loadMoreProducts,
+      loadAllProducts,
+      error,
+      searchMeta,
+    }),
+    [categories, products, brandFacets, attributeFacets, isLoading, isLoadingMore, hasMore, error, searchMeta]
   );
 }
 
@@ -374,6 +452,7 @@ export async function createCategory(category) {
   const data = await apiPost("/categories", {
     name: category.name,
     description: category.description,
+    iconUrl: category.iconUrl || "",
     status: category.status || "ACTIVE",
   });
   return normalizeCategory(data);
@@ -387,6 +466,7 @@ export async function updateCategory(id, category) {
   const data = await apiPut(`/categories/${id}`, {
     name: category.name,
     description: category.description,
+    iconUrl: category.iconUrl || "",
     status: category.status || "ACTIVE",
   });
   return normalizeCategory(data);
@@ -484,6 +564,8 @@ export async function createProduct(product) {
     description: product.description || "",
     categoryId: Number(product.categoryId),
     category_id: Number(product.categoryId),
+    subcategoryId: product.subcategoryId ? Number(product.subcategoryId) : null,
+    subcategory_id: product.subcategoryId ? Number(product.subcategoryId) : null,
     brandId: Number(product.brandId),
     brand_id: Number(product.brandId),
     status: product.status || "ACTIVE",
@@ -521,6 +603,8 @@ export async function updateProduct(id, product) {
     description: product.description || "",
     categoryId: Number(product.categoryId),
     category_id: Number(product.categoryId),
+    subcategoryId: product.subcategoryId ? Number(product.subcategoryId) : null,
+    subcategory_id: product.subcategoryId ? Number(product.subcategoryId) : null,
     brandId: Number(product.brandId),
     brand_id: Number(product.brandId),
     status: product.status || "ACTIVE",
@@ -534,6 +618,75 @@ export async function uploadProductImages(files) {
   files.forEach((file) => formData.append("files", file));
   const data = await apiPostFormData("/uploads/images", formData);
   return toArray(data).map(toAbsoluteApiUrl);
+}
+
+export async function getProductAttributeSuggestions(categoryId) {
+  const query =
+    categoryId && String(categoryId).trim()
+      ? `/products/facets?categoryId=${encodeURIComponent(String(categoryId).trim())}`
+      : "/products/facets";
+  const data = await apiGet(query, { skipAuth: true });
+  const attributes = data?.attributes && typeof data.attributes === "object" ? data.attributes : {};
+  return Object.entries(attributes).reduce((acc, [name, values]) => {
+    if (!name || !Array.isArray(values)) return acc;
+    acc[name] = values.filter(Boolean);
+    return acc;
+  }, {});
+}
+
+export async function getSubcategories(categoryId) {
+  if (!categoryId || String(categoryId).trim() === "" || String(categoryId) === "all") return [];
+  const data = await apiGet(`/subcategories?categoryId=${encodeURIComponent(String(categoryId))}`, {
+    skipAuth: true,
+  });
+  return toArray(data).map((item) => ({
+    id: item.id,
+    name: item.name,
+    description: item.description || "",
+    iconUrl: toAbsoluteApiUrl(item.iconUrl || item.icon_url || ""),
+    status: item.status,
+    categoryId: item.categoryId || item.category_id,
+  }));
+}
+
+export async function createSubcategory(payload) {
+  const data = await apiPost("/subcategories", {
+    name: payload.name,
+    description: payload.description || "",
+    iconUrl: payload.iconUrl || "",
+    categoryId: Number(payload.categoryId),
+    status: payload.status || "ACTIVE",
+  });
+  return {
+    id: data.id,
+    name: data.name,
+    description: data.description || "",
+    iconUrl: toAbsoluteApiUrl(data.iconUrl || data.icon_url || ""),
+    status: data.status,
+    categoryId: data.categoryId,
+  };
+}
+
+export async function updateSubcategory(id, payload) {
+  const data = await apiPut(`/subcategories/${id}`, {
+    name: payload.name,
+    description: payload.description || "",
+    iconUrl: payload.iconUrl || "",
+    categoryId: Number(payload.categoryId),
+    status: payload.status || "ACTIVE",
+  });
+  return {
+    id: data.id,
+    name: data.name,
+    description: data.description || "",
+    iconUrl: toAbsoluteApiUrl(data.iconUrl || data.icon_url || ""),
+    status: data.status,
+    categoryId: data.categoryId,
+  };
+}
+
+export async function deleteSubcategory(id) {
+  return apiDelete(`/subcategories/${id}`);
 }
 
 export async function getProductReviews(productId) {

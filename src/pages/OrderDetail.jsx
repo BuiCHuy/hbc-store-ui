@@ -24,6 +24,7 @@ import {
   createRefundRequest,
   getMyRefundRequests,
   getOrderById,
+  syncPayOSPaymentStatus,
 } from "../services/adminApi";
 
 const statusLabels = {
@@ -32,6 +33,14 @@ const statusLabels = {
   SHIPPING: "Đang giao",
   DELIVERED: "Đã giao",
   CANCELLED: "Đã hủy",
+};
+
+const statusBadgeStyles = {
+  PENDING: "border-amber-200 bg-amber-50 text-amber-700",
+  CONFIRMED: "border-indigo-200 bg-indigo-50 text-indigo-700",
+  SHIPPING: "border-blue-200 bg-blue-50 text-blue-700",
+  DELIVERED: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  CANCELLED: "border-red-200 bg-red-50 text-red-700",
 };
 
 const paymentLabels = {
@@ -44,6 +53,13 @@ const paymentStatusLabels = {
   PAID: "Đã thanh toán",
   FAILED: "Thanh toán lỗi",
   REFUNDED: "Đã hoàn tiền",
+};
+
+const paymentBadgeStyles = {
+  UNPAID: "border-amber-200 bg-amber-50 text-amber-700",
+  PAID: "border-emerald-200 bg-emerald-50 text-emerald-700",
+  FAILED: "border-red-200 bg-red-50 text-red-700",
+  REFUNDED: "border-slate-200 bg-slate-50 text-slate-700",
 };
 
 const refundStatusLabels = {
@@ -108,6 +124,9 @@ export function OrderDetail() {
       if (!active) return;
       setIsCheckingPayment(true);
       try {
+        if (momoPayment) {
+          await syncPayOSPaymentStatus(momoPayment);
+        }
         const latestOrder = await getOrderById(order.id);
         if (!active) return;
         setOrder(latestOrder);
@@ -130,7 +149,7 @@ export function OrderDetail() {
       clearInterval(interval);
       setIsCheckingPayment(false);
     };
-  }, [isMomoPaymentModalOpen, order?.id]);
+  }, [isMomoPaymentModalOpen, order?.id, momoPayment]);
 
   const latestRefund = useMemo(() => {
     if (!refunds.length) return null;
@@ -247,10 +266,18 @@ export function OrderDetail() {
               </div>
             </div>
             <div className="flex flex-col gap-2">
-              <span className="rounded-lg border border-green-200 bg-green-100 px-4 py-2 text-center text-sm font-medium text-green-700">
+              <span
+                className={`rounded-lg border px-4 py-2 text-center text-sm font-medium ${
+                  statusBadgeStyles[order.status] || "border-slate-200 bg-slate-50 text-slate-700"
+                }`}
+              >
                 {statusLabels[order.status]}
               </span>
-              <span className="rounded-lg border border-blue-200 bg-blue-100 px-4 py-2 text-center text-sm font-medium text-blue-700">
+              <span
+                className={`rounded-lg border px-4 py-2 text-center text-sm font-medium ${
+                  paymentBadgeStyles[order.payment_status] || "border-slate-200 bg-slate-50 text-slate-700"
+                }`}
+              >
                 {paymentStatusLabels[order.payment_status]}
               </span>
             </div>

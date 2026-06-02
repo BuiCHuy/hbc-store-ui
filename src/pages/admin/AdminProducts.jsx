@@ -142,30 +142,32 @@ export function AdminProducts() {
 
   const filteredProducts = useMemo(() => {
     const keyword = searchTerm.trim().toLowerCase();
-    return products.filter((product) => {
-      const idText = String(product.id || "");
-      const nameText = (product.name || "").toLowerCase();
-      const brandText = (product.brand || "").toLowerCase();
-      const categoryId = String(product.category_id ?? product.categoryId ?? "");
-      const statusKey = getStatusFilterKey(product);
+    return products
+      .filter((product) => {
+        const idText = String(product.id || "");
+        const nameText = (product.name || "").toLowerCase();
+        const brandText = (product.brand || "").toLowerCase();
+        const categoryId = String(product.category_id ?? product.categoryId ?? "");
+        const statusKey = getStatusFilterKey(product);
 
-      const matchSearch =
-        !keyword ||
-        nameText.includes(keyword) ||
-        idText.includes(keyword) ||
-        brandText.includes(keyword);
-      const matchCategory =
-        selectedCategoryFilter === "all" || categoryId === selectedCategoryFilter;
-      const matchStatus =
-        selectedStatusFilter === "all" || statusKey === selectedStatusFilter;
+        const matchSearch =
+          !keyword ||
+          nameText.includes(keyword) ||
+          idText.includes(keyword) ||
+          brandText.includes(keyword);
+        const matchCategory =
+          selectedCategoryFilter === "all" || categoryId === selectedCategoryFilter;
+        const matchStatus =
+          selectedStatusFilter === "all" || statusKey === selectedStatusFilter;
 
-      return matchSearch && matchCategory && matchStatus;
-    }).sort((a, b) => {
-      const aTime = new Date(a.created_at || a.createdAt || 0).getTime();
-      const bTime = new Date(b.created_at || b.createdAt || 0).getTime();
-      if (aTime && bTime && aTime !== bTime) return bTime - aTime;
-      return Number(b.id || 0) - Number(a.id || 0);
-    });
+        return matchSearch && matchCategory && matchStatus;
+      })
+      .sort((a, b) => {
+        const aTime = new Date(a.created_at || a.createdAt || 0).getTime();
+        const bTime = new Date(b.created_at || b.createdAt || 0).getTime();
+        if (aTime && bTime && aTime !== bTime) return bTime - aTime;
+        return Number(b.id || 0) - Number(a.id || 0);
+      });
   }, [products, searchTerm, selectedCategoryFilter, selectedStatusFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filteredProducts.length / PAGE_SIZE));
@@ -346,7 +348,9 @@ export function AdminProducts() {
                 <TableHead className="font-semibold text-gray-700">Giá</TableHead>
                 <TableHead className="font-semibold text-gray-700">Tồn kho</TableHead>
                 <TableHead className="font-semibold text-gray-700">Trạng thái</TableHead>
-                <TableHead className="text-right font-semibold text-gray-700">Thao tác</TableHead>
+                <TableHead className="text-right font-semibold text-gray-700">
+                  Thao tác
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -359,7 +363,7 @@ export function AdminProducts() {
               ) : filteredProducts.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={7} className="py-8 text-center text-sm text-gray-500">
-                    Không có sản phẩm khớp điều kiện tìm kiếm/lọc.
+                    Không có sản phẩm khớp điều kiện tìm kiếm hoặc bộ lọc.
                   </TableCell>
                 </TableRow>
               ) : (
@@ -381,7 +385,10 @@ export function AdminProducts() {
                             </div>
                           )}
                           <div>
-                            <div className="max-w-[200px] truncate font-bold text-gray-900" title={product.name}>
+                            <div
+                              className="max-w-[200px] truncate font-bold text-gray-900"
+                              title={product.name}
+                            >
                               {product.name}
                             </div>
                             <div className="mt-0.5 font-mono text-xs text-gray-500">
@@ -396,7 +403,9 @@ export function AdminProducts() {
                           {product.category}
                         </span>
                       </TableCell>
-                      <TableCell className="font-bold text-gray-900">{formatPrice(product.price)}</TableCell>
+                      <TableCell className="font-bold text-gray-900">
+                        {formatPrice(product.price)}
+                      </TableCell>
                       <TableCell className="font-medium text-gray-700">{stock} sp</TableCell>
                       <TableCell>{getStatusBadge(stock, product.status)}</TableCell>
                       <TableCell>
@@ -435,15 +444,26 @@ export function AdminProducts() {
           </Table>
         </div>
       </div>
+
       <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50 px-6 py-4">
         <span className="text-sm font-medium text-gray-600">
           Trang {currentPage}/{totalPages} - {filteredProducts.length} sản phẩm
         </span>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" disabled={currentPage === 1} onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={currentPage === 1}
+            onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+          >
             Trước
           </Button>
-          <Button variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={currentPage >= totalPages}
+            onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+          >
             Sau
           </Button>
         </div>
@@ -507,13 +527,32 @@ export function AdminProducts() {
                 </div>
 
                 <div className="space-y-3 text-sm">
-                  <div><span className="font-semibold">ID:</span> #{viewingProduct.id}</div>
-                  <div><span className="font-semibold">Tên:</span> {viewingProduct.name}</div>
-                  <div><span className="font-semibold">Giá:</span> {formatPrice(viewingProduct.price)}</div>
-                  <div><span className="font-semibold">Tồn kho:</span> {viewingProduct.stockQuantity ?? 0} sản phẩm</div>
-                  <div><span className="font-semibold">Thương hiệu:</span> {viewingProduct.brand || "Chưa có"}</div>
-                  <div><span className="font-semibold">Danh mục:</span> {viewingProduct.category || "Chưa có"}</div>
-                  <div><span className="font-semibold">Trạng thái:</span> {getStatusFilterKey(viewingProduct)}</div>
+                  <div>
+                    <span className="font-semibold">ID:</span> #{viewingProduct.id}
+                  </div>
+                  <div>
+                    <span className="font-semibold">Tên:</span> {viewingProduct.name}
+                  </div>
+                  <div>
+                    <span className="font-semibold">Giá:</span>{" "}
+                    {formatPrice(viewingProduct.price)}
+                  </div>
+                  <div>
+                    <span className="font-semibold">Tồn kho:</span>{" "}
+                    {viewingProduct.stockQuantity ?? 0} sản phẩm
+                  </div>
+                  <div>
+                    <span className="font-semibold">Thương hiệu:</span>{" "}
+                    {viewingProduct.brand || "Chưa có"}
+                  </div>
+                  <div>
+                    <span className="font-semibold">Danh mục:</span>{" "}
+                    {viewingProduct.category || "Chưa có"}
+                  </div>
+                  <div>
+                    <span className="font-semibold">Trạng thái:</span>{" "}
+                    {getStatusFilterKey(viewingProduct)}
+                  </div>
                 </div>
               </div>
 
@@ -525,8 +564,11 @@ export function AdminProducts() {
               </div>
 
               <div>
-                <h3 className="mb-2 text-sm font-semibold text-gray-900">Thuộc tính kỹ thuật</h3>
-                {Array.isArray(viewingProduct.attributes) && viewingProduct.attributes.length > 0 ? (
+                <h3 className="mb-2 text-sm font-semibold text-gray-900">
+                  Thuộc tính kỹ thuật
+                </h3>
+                {Array.isArray(viewingProduct.attributes) &&
+                viewingProduct.attributes.length > 0 ? (
                   <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                     {viewingProduct.attributes.map((attr, index) => (
                       <div
@@ -547,7 +589,10 @@ export function AdminProducts() {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={Boolean(deletingProduct)} onOpenChange={(open) => !open && setDeletingProduct(null)}>
+      <AlertDialog
+        open={Boolean(deletingProduct)}
+        onOpenChange={(open) => !open && setDeletingProduct(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Xác nhận ẩn sản phẩm?</AlertDialogTitle>
@@ -556,8 +601,13 @@ export function AdminProducts() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="border-gray-300 text-gray-700 hover:bg-gray-100">Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteProduct} className="bg-red-600 text-white hover:bg-red-700">
+            <AlertDialogCancel className="border-gray-300 text-gray-700 hover:bg-gray-100">
+              Hủy
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteProduct}
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
               Xác nhận
             </AlertDialogAction>
           </AlertDialogFooter>

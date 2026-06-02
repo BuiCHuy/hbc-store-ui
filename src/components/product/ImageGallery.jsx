@@ -6,8 +6,8 @@ export function ImageGallery({ images }) {
 
   if (!images?.length) {
     return (
-      <div className="aspect-[4/3] rounded-lg border border-dashed border-gray-300 bg-gray-100 flex items-center justify-center text-sm font-medium text-gray-500">
-        Chưa có ảnh sản phẩm
+      <div className="flex aspect-[4/3] items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-100 text-sm font-medium text-gray-500">
+        Chua co anh san pham
       </div>
     );
   }
@@ -22,26 +22,22 @@ export function ImageGallery({ images }) {
 
   return (
     <div className="space-y-3">
-      <div className="relative aspect-[4/3] bg-gray-100 rounded-lg overflow-hidden group">
-        <img
-          src={images[selectedImage]}
-          alt="Product"
-          className="w-full h-full object-cover"
-        />
+      <div className="group relative aspect-[4/3] overflow-hidden rounded-lg bg-gray-100">
+        <img src={images[selectedImage]} alt="Product" className="h-full w-full object-contain" />
         <button
           onClick={handlePrevious}
-          className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+          className="absolute left-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 opacity-0 shadow-md transition-opacity hover:bg-white group-hover:opacity-100"
         >
-          <ChevronLeft className="w-4 h-4 text-gray-800" />
+          <ChevronLeft className="h-4 w-4 text-gray-800" />
         </button>
         <button
           onClick={handleNext}
-          className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 bg-white/90 hover:bg-white rounded-full flex items-center justify-center shadow-md opacity-0 group-hover:opacity-100 transition-opacity"
+          className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 opacity-0 shadow-md transition-opacity hover:bg-white group-hover:opacity-100"
         >
-          <ChevronRight className="w-4 h-4 text-gray-800" />
+          <ChevronRight className="h-4 w-4 text-gray-800" />
         </button>
 
-        <div className="absolute bottom-3 right-3 bg-black/60 text-white text-xs px-2.5 py-1 rounded-full">
+        <div className="absolute bottom-3 right-3 rounded-full bg-black/60 px-2.5 py-1 text-xs text-white">
           {selectedImage + 1} / {images.length}
         </div>
       </div>
@@ -51,17 +47,11 @@ export function ImageGallery({ images }) {
           <button
             key={index}
             onClick={() => setSelectedImage(index)}
-            className={`aspect-square rounded-md overflow-hidden border transition-all ${
-              selectedImage === index
-                ? "border-purple-600 ring-1 ring-purple-200"
-                : "border-gray-200 hover:border-gray-300"
+            className={`aspect-square overflow-hidden rounded-md border bg-gray-100 transition-all ${
+              selectedImage === index ? "border-purple-600 ring-1 ring-purple-200" : "border-gray-200 hover:border-gray-300"
             }`}
           >
-            <img
-              src={image}
-              alt={`Thumbnail ${index + 1}`}
-              className="w-full h-full object-cover"
-            />
+            <img src={image} alt={`Thumbnail ${index + 1}`} className="h-full w-full object-contain" />
           </button>
         ))}
       </div>

@@ -7,18 +7,47 @@ import { Input } from "../components/ui/input";
 import { Label } from "../components/ui/label";
 import { Button } from "../components/ui/button";
 import { getMyOrders } from "../services/adminApi";
+import {
+  buildShippingAddress,
+  isDistrictEnabledProvince,
+  parseShippingAddress,
+  VIETNAM_PROVINCES,
+} from "../lib/shipping";
+import { loadDistrictOptions, loadWardOptions } from "../lib/vietnamAddress";
+
+function buildProfileForm(user) {
+  const parsedAddress = parseShippingAddress(user?.address || "");
+  return {
+    name: user?.name || "",
+    email: user?.email || "",
+    phone: user?.phoneNumber || "",
+    province: parsedAddress.province,
+    district: parsedAddress.district,
+    ward: parsedAddress.ward,
+    detailAddress: parsedAddress.detailAddress,
+  };
+}
 
 export function Profile() {
   const { isLoggedIn, user, updateUserProfile } = useAuth();
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [orderCount, setOrderCount] = useState(0);
+  const [districtOptions, setDistrictOptions] = useState([]);
+  const [wardOptions, setWardOptions] = useState([]);
+  const [addressLoading, setAddressLoading] = useState(false);
+  const [addressError, setAddressError] = useState("");
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     phone: "",
-    address: "",
+    province: "",
+    district: "",
+    ward: "",
+    detailAddress: "",
   });
+
+  const shouldShowDistrict = isDistrictEnabledProvince(formData.province);
 
   useEffect(() => {
     if (!isLoggedIn) {
@@ -26,12 +55,7 @@ export function Profile() {
       return;
     }
     if (user) {
-      setFormData({
-        name: user.name || "",
-        email: user.email || "",
-        phone: user.phoneNumber || "",
-        address: user.address || "",
-      });
+      setFormData(buildProfileForm(user));
     }
   }, [isLoggedIn, navigate, user]);
 
@@ -54,22 +78,77 @@ export function Profile() {
     };
   }, [isLoggedIn]);
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+  useEffect(() => {
+    if (!formData.province) {
+      setDistrictOptions([]);
+      setWardOptions([]);
+      return;
+    }
+
+    let mounted = true;
+    setAddressLoading(true);
+    setAddressError("");
+
+    const loadAddressOptions = async () => {
+      try {
+        const [districts, wards] = await Promise.all([
+          loadDistrictOptions(formData.province),
+          loadWardOptions(formData.province, formData.district),
+        ]);
+        if (!mounted) return;
+        setDistrictOptions(districts);
+        setWardOptions(wards);
+      } catch (error) {
+        if (!mounted) return;
+        setDistrictOptions([]);
+        setWardOptions([]);
+        setAddressError(error.message || "Không tải được dữ liệu địa chỉ.");
+      } finally {
+        if (mounted) setAddressLoading(false);
+      }
+    };
+
+    loadAddressOptions();
+
+    return () => {
+      mounted = false;
+    };
+  }, [formData.province, formData.district]);
+
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+    setFormData((prev) => {
+      const next = { ...prev, [name]: value };
+      if (name === "province") {
+        next.district = "";
+        next.ward = "";
+      }
+      if (name === "district") {
+        next.ward = "";
+      }
+      return next;
+    });
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
     if (!user) return;
+
+    const address = buildShippingAddress(
+      formData.detailAddress,
+      formData.ward,
+      shouldShowDistrict ? formData.district : "",
+      formData.province
+    );
 
     const ok = await updateUserProfile({
       name: formData.name,
       phoneNumber: formData.phone,
-      address: formData.address,
+      address,
     });
 
     if (ok) {
-      toast.success("Cập nhật thành công!", {
+      toast.success("Cập nhật thành công", {
         description: "Thông tin cá nhân đã được lưu.",
       });
       setIsEditing(false);
@@ -83,17 +162,19 @@ export function Profile() {
 
   const handleCancel = () => {
     if (user) {
-      setFormData({
-        name: user.name || "",
-        email: user.email || "",
-        phone: user.phoneNumber || "",
-        address: user.address || "",
-      });
+      setFormData(buildProfileForm(user));
     }
     setIsEditing(false);
   };
 
   if (!isLoggedIn || !user) return null;
+
+  const displayAddress = buildShippingAddress(
+    formData.detailAddress,
+    formData.ward,
+    shouldShowDistrict ? formData.district : "",
+    formData.province
+  );
 
   return (
     <div className="bg-gray-50 pb-12">
@@ -124,7 +205,9 @@ export function Profile() {
                 <div className="flex items-center justify-between">
                   <span className="text-gray-600">Ngày tham gia</span>
                   <span className="font-medium text-gray-900">
-                    {user.createdAt ? new Date(user.createdAt).toLocaleDateString("vi-VN") : "Chưa có"}
+                    {user.createdAt
+                      ? new Date(user.createdAt).toLocaleDateString("vi-VN")
+                      : "Chưa có"}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
@@ -148,7 +231,9 @@ export function Profile() {
               <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
                 <div>
                   <h1 className="text-2xl font-bold text-gray-900">Hồ sơ cá nhân</h1>
-                  <p className="mt-1 text-sm text-gray-600">Quản lý thông tin để bảo mật tài khoản</p>
+                  <p className="mt-1 text-sm text-gray-600">
+                    Quản lý thông tin để bảo mật tài khoản
+                  </p>
                 </div>
                 {!isEditing ? (
                   <Button onClick={() => setIsEditing(true)}>Chỉnh sửa</Button>
@@ -172,16 +257,14 @@ export function Profile() {
                     <User className="h-5 w-5 text-purple-600" />
                     Thông tin cá nhân
                   </h3>
-                  <div className="grid grid-cols-1 gap-4">
-                    <Field
-                      label="Họ và tên"
-                      id="name"
-                      value={formData.name}
-                      onChange={handleChange}
-                      disabled={!isEditing}
-                      required
-                    />
-                  </div>
+                  <Field
+                    label="Họ và tên"
+                    id="name"
+                    value={formData.name}
+                    onChange={handleChange}
+                    disabled={!isEditing}
+                    required
+                  />
                 </section>
 
                 <section className="border-t pt-6">
@@ -190,7 +273,14 @@ export function Profile() {
                     Thông tin liên hệ
                   </h3>
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <Field label="Email" id="email" value={formData.email} disabled icon={Mail} type="email" />
+                    <Field
+                      label="Email"
+                      id="email"
+                      value={formData.email}
+                      disabled
+                      icon={Mail}
+                      type="email"
+                    />
                     <Field
                       label="Số điện thoại"
                       id="phone"
@@ -208,14 +298,62 @@ export function Profile() {
                     <MapPin className="h-5 w-5 text-purple-600" />
                     Địa chỉ
                   </h3>
-                  <Field
-                    label="Địa chỉ"
-                    id="address"
-                    value={formData.address}
-                    onChange={handleChange}
-                    disabled={!isEditing}
-                    required
-                  />
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                    <SelectField
+                      label="Tỉnh/Thành phố"
+                      id="province"
+                      value={formData.province}
+                      onChange={handleChange}
+                      disabled={!isEditing}
+                      required
+                      options={VIETNAM_PROVINCES}
+                      placeholder="Chọn tỉnh/thành phố"
+                    />
+
+                    {shouldShowDistrict ? (
+                      <SelectField
+                        label="Quận/Huyện"
+                        id="district"
+                        value={formData.district}
+                        onChange={handleChange}
+                        disabled={!isEditing || addressLoading}
+                        required
+                        options={districtOptions}
+                        placeholder={addressLoading ? "Đang tải quận/huyện..." : "Chọn quận/huyện"}
+                      />
+                    ) : null}
+
+                    <SelectField
+                      label="Phường/Xã"
+                      id="ward"
+                      value={formData.ward}
+                      onChange={handleChange}
+                      disabled={
+                        !isEditing ||
+                        !formData.province ||
+                        addressLoading ||
+                        (shouldShowDistrict && !formData.district)
+                      }
+                      required
+                      options={wardOptions}
+                      placeholder={addressLoading ? "Đang tải phường/xã..." : "Chọn phường/xã"}
+                    />
+
+                    <div className="md:col-span-2">
+                      <Field
+                        label="Địa chỉ cụ thể"
+                        id="detailAddress"
+                        value={formData.detailAddress}
+                        onChange={handleChange}
+                        disabled={!isEditing}
+                        required
+                      />
+                    </div>
+                  </div>
+                  {addressError && <p className="mt-3 text-sm text-red-500">{addressError}</p>}
+                  <p className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600">
+                    Địa chỉ lưu: {displayAddress || "Chưa cập nhật"}
+                  </p>
                 </section>
               </form>
             </div>
@@ -245,6 +383,34 @@ function Field({ label, id, value, onChange, disabled, icon: Icon, type = "text"
           className={`${Icon ? "pl-10" : ""} ${disabled ? "bg-gray-50 text-gray-500" : ""}`}
         />
       </div>
+    </div>
+  );
+}
+
+function SelectField({ label, id, value, onChange, disabled, required, options, placeholder }) {
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={id}>
+        {label} {required && <span className="text-red-500">*</span>}
+      </Label>
+      <select
+        id={id}
+        name={id}
+        value={value}
+        onChange={onChange}
+        disabled={disabled}
+        required={required}
+        className={`h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-sm outline-none focus:border-purple-500 focus:ring-[3px] focus:ring-purple-500/20 ${
+          disabled ? "bg-gray-50 text-gray-500" : ""
+        }`}
+      >
+        <option value="">{placeholder}</option>
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }

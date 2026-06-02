@@ -15,6 +15,14 @@ const statusConfig = {
   CANCELLED: "Đã hủy",
 };
 
+const statusBadgeStyles = {
+  PENDING: "bg-amber-50 text-amber-700 border border-amber-200",
+  CONFIRMED: "bg-indigo-50 text-indigo-700 border border-indigo-200",
+  SHIPPING: "bg-blue-50 text-blue-700 border border-blue-200",
+  DELIVERED: "bg-emerald-50 text-emerald-700 border border-emerald-200",
+  CANCELLED: "bg-red-50 text-red-700 border border-red-200",
+};
+
 const statusFilterStyles = {
   all: {
     active: "border-gray-900 bg-gray-900 text-white hover:bg-gray-800",
@@ -35,6 +43,10 @@ const statusFilterStyles = {
   DELIVERED: {
     active: "border-emerald-500 bg-emerald-500 text-white hover:bg-emerald-600",
     idle: "border-emerald-200 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-50",
+  },
+  CANCELLED: {
+    active: "border-red-500 bg-red-500 text-white hover:bg-red-600",
+    idle: "border-red-200 text-red-700 hover:border-red-300 hover:bg-red-50",
   },
 };
 
@@ -74,7 +86,9 @@ export function Orders() {
         }
       } catch (error) {
         if (active) {
-          toast.error("Không thể xác nhận kết quả PayOS", { description: error.message });
+          toast.error("Không thể xác nhận kết quả PayOS", {
+            description: error.message,
+          });
           navigate("/orders", { replace: true });
         }
       }
@@ -127,7 +141,10 @@ export function Orders() {
       <main className="user-container py-8">
         <div className="mb-8">
           <nav className="mb-4 flex items-center gap-1.5 text-xs text-gray-500">
-            <Link to="/" className="inline-flex items-center gap-1 font-medium text-gray-600 hover:text-purple-600">
+            <Link
+              to="/"
+              className="inline-flex items-center gap-1 font-medium text-gray-600 hover:text-purple-600"
+            >
               <Home className="h-3.5 w-3.5" />
               Trang chủ
             </Link>
@@ -171,20 +188,22 @@ export function Orders() {
                 ["CONFIRMED", "Đã xác nhận"],
                 ["SHIPPING", "Đang giao"],
                 ["DELIVERED", "Đã giao"],
-              ].map(([value, label]) => (
-                <Button
-                  key={value}
-                  variant="outline"
-                  onClick={() => setFilterStatus(value)}
-                  className={`h-11 whitespace-nowrap border font-semibold ${
-                    filterStatus === value
-                      ? statusFilterStyles[value].active
-                      : statusFilterStyles[value].idle
-                  }`}
-                >
-                  {label}
-                </Button>
-              ))}
+                ["CANCELLED", "Đã hủy"],
+              ].map(([value, label]) => {
+                const styleConfig = statusFilterStyles[value] || statusFilterStyles.all;
+                return (
+                  <Button
+                    key={value}
+                    variant="outline"
+                    onClick={() => setFilterStatus(value)}
+                    className={`h-11 whitespace-nowrap border font-semibold ${
+                      filterStatus === value ? styleConfig.active : styleConfig.idle
+                    }`}
+                  >
+                    {label}
+                  </Button>
+                );
+              })}
             </div>
           </div>
         </div>
@@ -198,7 +217,9 @@ export function Orders() {
             <div className="rounded-2xl border border-gray-200 bg-white p-16 text-center shadow-sm">
               <Package className="mx-auto mb-4 h-12 w-12 text-gray-300" />
               <h3 className="mb-2 text-xl font-bold text-gray-900">Không tìm thấy đơn hàng nào</h3>
-              <p className="mb-8 text-gray-500">Đơn hàng sẽ hiển thị tại đây sau khi bạn đặt hàng.</p>
+              <p className="mb-8 text-gray-500">
+                Đơn hàng sẽ hiển thị tại đây sau khi bạn đặt hàng.
+              </p>
               <Button onClick={() => navigate("/")}>Tiếp tục mua sắm</Button>
             </div>
           ) : (
@@ -216,12 +237,19 @@ export function Orders() {
                       <h3 className="text-lg font-bold text-gray-900">{order.code}</h3>
                       <div className="flex items-center gap-2 text-sm text-gray-500">
                         <Calendar className="h-4 w-4" />
-                        <span>Đặt ngày {new Date(order.order_date).toLocaleDateString("vi-VN")}</span>
+                        <span>
+                          Đặt ngày {new Date(order.order_date).toLocaleDateString("vi-VN")}
+                        </span>
                       </div>
                     </div>
                   </div>
-                  <span className="rounded-full bg-purple-50 px-4 py-1.5 text-sm font-semibold text-purple-700">
-                    {statusConfig[order.status]}
+                  <span
+                    className={`rounded-full px-4 py-1.5 text-sm font-semibold ${
+                      statusBadgeStyles[order.status] ||
+                      "border border-slate-200 bg-slate-50 text-slate-700"
+                    }`}
+                  >
+                    {statusConfig[order.status] || order.status}
                   </span>
                 </div>
                 <div className="flex flex-col items-center justify-between gap-4 border-t border-gray-100 px-6 py-4 sm:flex-row">

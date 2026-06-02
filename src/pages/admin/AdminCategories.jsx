@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Edit, Package, Plus, Search, Trash2 } from "lucide-react";
+import { Edit, Layers, Package, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
@@ -19,6 +19,7 @@ import {
   TableRow,
 } from "../../components/ui/table";
 import { AddCategoryModal } from "../../components/admin/AddCategoryModal";
+import { SubcategoryManagerModal } from "../../components/admin/SubcategoryManagerModal";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -37,6 +38,7 @@ export function AdminCategories() {
   const [isLoading, setIsLoading] = useState(true);
   const [isAddCategoryModalOpen, setIsAddCategoryModalOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState(null);
+  const [managingSubcategoriesFor, setManagingSubcategoriesFor] = useState(null);
   const [deletingCategory, setDeletingCategory] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -221,7 +223,18 @@ export function AdminCategories() {
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-gray-200 bg-white">
-                          <Package className="h-5 w-5 text-purple-600" />
+                          {category.iconUrl ? (
+                            <img
+                              src={category.iconUrl}
+                              alt={category.name}
+                              className="h-10 w-10 rounded-lg object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = "none";
+                              }}
+                            />
+                          ) : (
+                            <Package className="h-5 w-5 text-purple-600" />
+                          )}
                         </div>
                         <div className="font-bold text-gray-900">{category.name}</div>
                       </div>
@@ -238,6 +251,14 @@ export function AdminCategories() {
                     <TableCell>
                       <div className="flex justify-end gap-1">
                         <Button variant="ghost" size="icon" onClick={() => setEditingCategory(category)}><Edit className="h-4 w-4" /></Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          title="Quản lý danh mục con"
+                          onClick={() => setManagingSubcategoriesFor(category)}
+                        >
+                          <Layers className="h-4 w-4" />
+                        </Button>
                         <Button variant="ghost" size="icon" onClick={() => setDeletingCategory(category)}><Trash2 className="h-4 w-4" /></Button>
                       </div>
                     </TableCell>
@@ -277,6 +298,13 @@ export function AdminCategories() {
           initialData={editingCategory}
           title="Chỉnh sửa danh mục"
           submitLabel="Cập nhật danh mục"
+        />
+      )}
+      {managingSubcategoriesFor && (
+        <SubcategoryManagerModal
+          isOpen={Boolean(managingSubcategoriesFor)}
+          category={managingSubcategoriesFor}
+          onClose={() => setManagingSubcategoriesFor(null)}
         />
       )}
       <AlertDialog open={Boolean(deletingCategory)} onOpenChange={(open) => !open && setDeletingCategory(null)}>

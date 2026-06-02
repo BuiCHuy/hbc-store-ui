@@ -2,9 +2,24 @@
 
 import * as React from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { X } from "lucide-react"; 
+import { X } from "lucide-react";
+import { cva } from "class-variance-authority";
 
 import { cn } from "../../lib/utils";
+
+const dialogSizeVariants = cva("", {
+  variants: {
+    size: {
+      sm: "sm:max-w-[28rem]",
+      md: "sm:max-w-[36rem]",
+      lg: "sm:max-w-[48rem]",
+      xl: "sm:max-w-[64rem]",
+    },
+  },
+  defaultVariants: {
+    size: "md",
+  },
+});
 
 function Dialog({ ...props }) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />;
@@ -27,7 +42,7 @@ function DialogOverlay({ className, ...props }) {
     <DialogPrimitive.Overlay
       data-slot="dialog-overlay"
       className={cn(
-        "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 fixed inset-0 z-50 bg-black/50 backdrop-blur-sm",
+        "fixed inset-0 z-50 bg-black/50 backdrop-blur-sm data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0",
         className
       )}
       {...props}
@@ -35,12 +50,7 @@ function DialogOverlay({ className, ...props }) {
   );
 }
 
-function DialogContent({
-  className,
-  children,
-  onInteractOutside,
-  ...props
-}) {
+function DialogContent({ className, children, size, onInteractOutside, ...props }) {
   const handleInteractOutside = (event) => {
     if (event?.target?.closest?.("[data-hbc-select-content='true']")) {
       event.preventDefault();
@@ -55,17 +65,17 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          /* Đã xóa sm:max-w-lg ở dòng dưới này để giải phóng chiều rộng */
-          "bg-white data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-2rem)] translate-x-[-50%] translate-y-[-50%] gap-4 rounded-2xl border border-gray-200 p-6 shadow-2xl duration-200 overflow-hidden",
+          "fixed top-[50%] left-[50%] z-50 grid w-full max-w-[calc(100%-1.5rem)] translate-x-[-50%] translate-y-[-50%] gap-4 overflow-hidden rounded-xl border border-gray-200 bg-white p-6 shadow-2xl duration-200 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-95 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95",
+          dialogSizeVariants({ size }),
           className
         )}
         onInteractOutside={handleInteractOutside}
         {...props}
       >
         {children}
-        <DialogPrimitive.Close className="ring-offset-background focus:ring-ring data-[state=open]:bg-accent data-[state=open]:text-muted-foreground absolute top-4 right-4 rounded-full p-1 opacity-70 transition-opacity hover:opacity-100 hover:bg-gray-100 focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:pointer-events-none">
-          <X className="w-5 h-5 text-gray-500" />
-          <span className="sr-only">Đóng</span>
+        <DialogPrimitive.Close className="absolute top-4 right-4 rounded-full p-1 opacity-70 transition-opacity hover:bg-gray-100 hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:pointer-events-none">
+          <X className="h-5 w-5 text-gray-500" />
+          <span className="sr-only">Dong</span>
         </DialogPrimitive.Close>
       </DialogPrimitive.Content>
     </DialogPortal>
@@ -86,10 +96,7 @@ function DialogFooter({ className, ...props }) {
   return (
     <div
       data-slot="dialog-footer"
-      className={cn(
-        "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end",
-        className
-      )}
+      className={cn("flex flex-col-reverse gap-2 sm:flex-row sm:justify-end", className)}
       {...props}
     />
   );

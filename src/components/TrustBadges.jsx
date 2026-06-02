@@ -1,5 +1,5 @@
 import React from "react";
-import { Shield, Truck, RotateCcw, Headphones } from "lucide-react";
+import { Headphones, RotateCcw, Shield, Truck } from "lucide-react";
 
 const badges = [
   {
@@ -26,26 +26,19 @@ const badges = [
 
 export function TrustBadges() {
   return (
-    <section className="py-3 bg-white border-b border-gray-100">
+    <section className="border-b border-slate-200 bg-white py-3">
       <div className="user-container">
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 md:gap-3">
+        <div className="grid grid-cols-2 gap-2 md:gap-3 lg:grid-cols-4">
           {badges.map((badge, index) => {
             const Icon = badge.icon;
             return (
-              <div
-                key={index}
-                className="flex items-start gap-2 p-2.5 rounded-md hover:bg-gray-50 transition-colors"
-              >
-                <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-purple-100 to-blue-100 rounded-md flex items-center justify-center">
-                  <Icon className="w-4 h-4 text-purple-600" />
+              <div key={index} className="flex items-start gap-2 rounded-lg p-2.5 transition-colors hover:bg-slate-50">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-gradient-to-br from-purple-100 to-indigo-100">
+                  <Icon className="h-4 w-4 text-purple-600" />
                 </div>
                 <div>
-                  <h3 className="text-xs md:text-sm font-semibold text-gray-900 leading-tight">
-                    {badge.title}
-                  </h3>
-                  <p className="text-[11px] md:text-xs text-gray-600 mt-0.5">
-                    {badge.description}
-                  </p>
+                  <h3 className="text-xs font-semibold leading-tight text-slate-900 md:text-sm">{badge.title}</h3>
+                  <p className="mt-0.5 text-[11px] text-slate-600 md:text-xs">{badge.description}</p>
                 </div>
               </div>
             );
