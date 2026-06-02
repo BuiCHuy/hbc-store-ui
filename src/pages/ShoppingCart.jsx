@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Trash2, Minus, Plus, ShoppingBag, ShieldCheck, Ticket, ChevronRight, Home } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -19,10 +19,17 @@ import { GuestCheckoutModal } from "../components/GuestCheckoutModal";
 import { OrderConfirmationModal } from "../components/OrderConfirmationModal";
 import { OrderSuccessModal } from "../components/OrderSuccessModal";
 import { PaymentQrModal } from "../components/PaymentQrModal";
+import { parseShippingAddress } from "../lib/shipping";
 
 export function ShoppingCart() {
   const navigate = useNavigate();
   const { isAdmin, isLoggedIn, user } = useAuth();
+  const previousProfileRef = useRef({
+    fullName: "",
+    phoneNumber: "",
+    email: "",
+    address: "",
+  });
 
   const [cartItems, setCartItems] = useState(() => getCartItems());
   const [promoCode, setPromoCode] = useState("");
@@ -51,6 +58,60 @@ export function ShoppingCart() {
     setCartItems(latestItems);
     setSelectedItems(latestItems.map((item) => item.id));
   }, [user?.id, user?.email]);
+
+  useEffect(() => {
+    const currentProfile = {
+      fullName: user?.name || "",
+      phoneNumber: user?.phoneNumber || "",
+      email: user?.email || "",
+      address: user?.address || "",
+    };
+
+    setCheckoutData((prev) => {
+      if (!prev) {
+        previousProfileRef.current = currentProfile;
+        return prev;
+      }
+
+      const oldProfile = previousProfileRef.current;
+      const oldParsedAddress = parseShippingAddress(oldProfile.address);
+      const newParsedAddress = parseShippingAddress(currentProfile.address);
+
+      const next = { ...prev };
+
+      if (!prev.fullName || prev.fullName === oldProfile.fullName) {
+        next.fullName = currentProfile.fullName;
+      }
+      if (!prev.phoneNumber || prev.phoneNumber === oldProfile.phoneNumber) {
+        next.phoneNumber = currentProfile.phoneNumber;
+      }
+      if (!prev.email || prev.email === oldProfile.email) {
+        next.email = currentProfile.email;
+      }
+      if (!prev.address || prev.address === oldProfile.address) {
+        next.address = currentProfile.address;
+      }
+      if (!prev.province || prev.province === oldParsedAddress.province) {
+        next.province = newParsedAddress.province;
+      }
+      if (!prev.district || prev.district === oldParsedAddress.district) {
+        next.district = newParsedAddress.district;
+      }
+      if (!prev.ward || prev.ward === oldParsedAddress.ward) {
+        next.ward = newParsedAddress.ward;
+      }
+      if (!prev.detailAddress || prev.detailAddress === oldParsedAddress.detailAddress) {
+        next.detailAddress = newParsedAddress.detailAddress;
+      }
+
+      previousProfileRef.current = currentProfile;
+      return next;
+    });
+
+    if (!checkoutData) {
+      previousProfileRef.current = currentProfile;
+    }
+  }, [user?.name, user?.phoneNumber, user?.email, user?.address]);
 
   useEffect(() => {
     let mounted = true;
