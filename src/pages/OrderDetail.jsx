@@ -10,6 +10,7 @@ import {
   MapPin,
   Package,
   Phone,
+  Star,
   User,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -26,6 +27,7 @@ import {
   getOrderById,
   syncPayOSPaymentStatus,
 } from "../services/adminApi";
+import { createProductReview, getMyProductReview } from "../hooks/useCatalog";
 
 const statusLabels = {
   PENDING: "Đang xử lý",
@@ -84,6 +86,10 @@ export function OrderDetail() {
   const [momoPayment, setMomoPayment] = useState(null);
   const [isCreatingPayment, setIsCreatingPayment] = useState(false);
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
+  const [reviewEligibility, setReviewEligibility] = useState({});
+  const [myReviews, setMyReviews] = useState({});
+  const [reviewForms, setReviewForms] = useState({});
+  const [submittingReviewId, setSubmittingReviewId] = useState(null);
 
   useEffect(() => {
     if (!isAuthReady) return;
@@ -151,6 +157,57 @@ export function OrderDetail() {
     };
   }, [isMomoPaymentModalOpen, order?.id, momoPayment]);
 
+  useEffect(() => {
+    if (!order?.items?.length || order.status !== "DELIVERED") {
+      setReviewEligibility({});
+      setMyReviews({});
+      setReviewForms({});
+      return;
+    }
+
+    let mounted = true;
+
+    async function loadReviewState() {
+      try {
+        const entries = await Promise.all(
+          order.items.map(async (item) => {
+            const myReview = await getMyProductReview(item.product_id);
+            return [item.product_id, { myReview }];
+          })
+        );
+
+        if (!mounted) return;
+
+        const nextEligibility = {};
+        const nextMyReviews = {};
+        const nextForms = {};
+
+        entries.forEach(([productId, state]) => {
+          nextEligibility[productId] = true;
+          nextMyReviews[productId] = state.myReview || null;
+          nextForms[productId] = {
+            rating: String(state.myReview?.rating || 5),
+            content: state.myReview?.comment || "",
+          };
+        });
+
+        setReviewEligibility(nextEligibility);
+        setMyReviews(nextMyReviews);
+        setReviewForms(nextForms);
+      } catch {
+        if (!mounted) return;
+        setReviewEligibility({});
+        setMyReviews({});
+        setReviewForms({});
+      }
+    }
+
+    loadReviewState();
+    return () => {
+      mounted = false;
+    };
+  }, [order?.id, order?.status, order?.items]);
+
   const latestRefund = useMemo(() => {
     if (!refunds.length) return null;
     return [...refunds].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0];
@@ -169,6 +226,55 @@ export function OrderDetail() {
     order?.payment_method === "BANK_TRANSFER" &&
     order?.payment_status === "UNPAID" &&
     order?.status !== "CANCELLED";
+
+  const handleReviewFieldChange = (productId, field, value) => {
+    setReviewForms((prev) => ({
+      ...prev,
+      [productId]: {
+        rating: prev[productId]?.rating || "5",
+        content: prev[productId]?.content || "",
+        [field]: value,
+      },
+    }));
+  };
+
+  const handleSubmitReview = async (productId) => {
+    if (order?.status !== "DELIVERED") {
+      toast.info("Chỉ có thể đánh giá sản phẩm từ đơn hàng đã giao thành công");
+      return;
+    }
+
+    const form = reviewForms[productId] || { rating: "5", content: "" };
+    const content = String(form.content || "").trim();
+    if (!content) {
+      toast.error("Vui lòng nhập nội dung đánh giá");
+      return;
+    }
+
+    setSubmittingReviewId(productId);
+    try {
+      await createProductReview(productId, {
+        rating: Number(form.rating || 5),
+        content,
+      });
+      const latestReview = await getMyProductReview(productId);
+      setMyReviews((prev) => ({ ...prev, [productId]: latestReview }));
+      setReviewForms((prev) => ({
+        ...prev,
+        [productId]: {
+          rating: String(latestReview?.rating || form.rating || 5),
+          content: latestReview?.comment || content,
+        },
+      }));
+      toast.success("Đã gửi đánh giá", {
+        description: "Đánh giá của bạn đang chờ admin duyệt.",
+      });
+    } catch (error) {
+      toast.error("Không thể gửi đánh giá", { description: error.message });
+    } finally {
+      setSubmittingReviewId(null);
+    }
+  };
 
   const handleSubmitRefund = async () => {
     const reason = refundReason.trim();
@@ -290,21 +396,86 @@ export function OrderDetail() {
               <h2 className="mb-6 text-lg font-bold text-gray-900">Sản phẩm ({order.items.length} món)</h2>
               <div className="space-y-4">
                 {order.items.map((product) => (
-                  <div key={product.id} className="flex items-center justify-between border-b border-gray-100 pb-4">
-                    <div className="flex items-center gap-3">
-                      {product.product_image ? (
-                        <img
-                          src={product.product_image}
-                          alt={product.product_name}
-                          className="h-14 w-14 rounded-md border border-gray-200 object-cover"
-                        />
-                      ) : null}
-                      <div>
-                        <p className="font-semibold text-gray-900">{product.product_name}</p>
-                        <p className="text-sm text-gray-600">Số lượng: {product.quantity}</p>
+                  <div key={product.id} className="border-b border-gray-100 pb-4 last:border-b-0">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {product.product_image ? (
+                          <img
+                            src={product.product_image}
+                            alt={product.product_name}
+                            className="h-14 w-14 rounded-md border border-gray-200 object-cover"
+                          />
+                        ) : null}
+                        <div>
+                          <p className="font-semibold text-gray-900">{product.product_name}</p>
+                          <p className="text-sm text-gray-600">Số lượng: {product.quantity}</p>
+                        </div>
                       </div>
+                      <p className="font-bold text-blue-600">{product.total_price.toLocaleString("vi-VN")} đ</p>
                     </div>
-                    <p className="font-bold text-blue-600">{product.total_price.toLocaleString("vi-VN")} đ</p>
+
+                    {order.status === "DELIVERED" && reviewEligibility[product.product_id] ? (
+                      <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                        <p className="mb-2 text-sm font-semibold text-gray-900">
+                          {myReviews[product.product_id] ? "Đánh giá của bạn" : "Đánh giá sản phẩm này"}
+                        </p>
+
+                        {myReviews[product.product_id] ? (
+                          <div className="mb-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+                            Bạn đã gửi đánh giá cho sản phẩm này. Nếu chưa hiển thị ở trang sản phẩm, vui lòng chờ admin duyệt.
+                          </div>
+                        ) : null}
+
+                        <div className="mb-3">
+                          <label className="mb-1 block text-xs text-gray-600">Số sao</label>
+                          <select
+                            value={reviewForms[product.product_id]?.rating || "5"}
+                            onChange={(event) =>
+                              handleReviewFieldChange(product.product_id, "rating", event.target.value)
+                            }
+                            className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-sm text-gray-900 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+                          >
+                            <option value="5">5 sao</option>
+                            <option value="4">4 sao</option>
+                            <option value="3">3 sao</option>
+                            <option value="2">2 sao</option>
+                            <option value="1">1 sao</option>
+                          </select>
+                        </div>
+
+                        <div className="mb-3">
+                          <label className="mb-1 block text-xs text-gray-600">Nội dung</label>
+                          <Textarea
+                            value={reviewForms[product.product_id]?.content || ""}
+                            onChange={(event) =>
+                              handleReviewFieldChange(product.product_id, "content", event.target.value)
+                            }
+                            placeholder="Chia sẻ trải nghiệm thực tế về sản phẩm..."
+                            className="min-h-[90px] bg-white text-sm"
+                          />
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <Button
+                            onClick={() => handleSubmitReview(product.product_id)}
+                            disabled={submittingReviewId === product.product_id}
+                            className="h-9 text-xs"
+                          >
+                            {submittingReviewId === product.product_id
+                              ? "Đang gửi..."
+                              : myReviews[product.product_id]
+                                ? "Gửi cập nhật"
+                                : "Gửi đánh giá"}
+                          </Button>
+                          {myReviews[product.product_id]?.rating ? (
+                            <div className="inline-flex items-center gap-1 text-xs text-gray-500">
+                              <Star className="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
+                              <span>{myReviews[product.product_id].rating}/5</span>
+                            </div>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 ))}
               </div>

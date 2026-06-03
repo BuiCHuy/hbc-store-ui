@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { ShoppingCart, Shield, Star, Truck, Zap } from "lucide-react";
 import { Button } from "../ui/button";
 import { LoginPromptModal } from "../LoginPromptModal";
@@ -12,12 +12,26 @@ import { toast } from "sonner";
 import {
   createOrder,
   createPayOSPayment,
-  getCoupons,
   getOrderById,
-  quoteShipping,
+  quoteOrder,
   syncPayOSPaymentStatus,
 } from "../../services/adminApi";
 import { parseShippingAddress } from "../../lib/shipping";
+
+function buildCheckoutSnapshot(checkoutData, user, voucherCode = "") {
+  return {
+    fullName: checkoutData?.fullName || user?.name || "",
+    phoneNumber: checkoutData?.phoneNumber || user?.phoneNumber || "",
+    email: checkoutData?.email || user?.email || "",
+    address: checkoutData?.address || user?.address || "",
+    province: checkoutData?.province || "",
+    district: checkoutData?.district || "",
+    ward: checkoutData?.ward || "",
+    detailAddress: checkoutData?.detailAddress || "",
+    voucherCode: String(checkoutData?.voucherCode || voucherCode || "").trim().toUpperCase(),
+    paymentMethod: checkoutData?.paymentMethod || "COD",
+  };
+}
 
 export function ProductInfo({
   id,
@@ -39,6 +53,7 @@ export function ProductInfo({
     email: "",
     address: "",
   });
+
   const [quantity, setQuantity] = useState(1);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
@@ -50,25 +65,12 @@ export function ProductInfo({
   const [momoPayment, setMomoPayment] = useState(null);
   const [isCheckingPayment, setIsCheckingPayment] = useState(false);
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
-  const [availableCoupons, setAvailableCoupons] = useState([]);
+  const [promoCode, setPromoCode] = useState("");
   const [discount, setDiscount] = useState(0);
   const [appliedVoucher, setAppliedVoucher] = useState("");
   const [appliedCouponId, setAppliedCouponId] = useState(null);
   const [shippingFee, setShippingFee] = useState(0);
-
-  useEffect(() => {
-    let mounted = true;
-    getCoupons()
-      .then((data) => {
-        if (mounted) setAvailableCoupons(Array.isArray(data) ? data : []);
-      })
-      .catch(() => {
-        if (mounted) setAvailableCoupons([]);
-      });
-    return () => {
-      mounted = false;
-    };
-  }, []);
+  const [quotedItem, setQuotedItem] = useState(null);
 
   useEffect(() => {
     const currentProfile = {
@@ -89,27 +91,13 @@ export function ProductInfo({
       const newParsedAddress = parseShippingAddress(currentProfile.address);
       const next = { ...prev };
 
-      if (!prev.fullName || prev.fullName === oldProfile.fullName) {
-        next.fullName = currentProfile.fullName;
-      }
-      if (!prev.phoneNumber || prev.phoneNumber === oldProfile.phoneNumber) {
-        next.phoneNumber = currentProfile.phoneNumber;
-      }
-      if (!prev.email || prev.email === oldProfile.email) {
-        next.email = currentProfile.email;
-      }
-      if (!prev.address || prev.address === oldProfile.address) {
-        next.address = currentProfile.address;
-      }
-      if (!prev.province || prev.province === oldParsedAddress.province) {
-        next.province = newParsedAddress.province;
-      }
-      if (!prev.district || prev.district === oldParsedAddress.district) {
-        next.district = newParsedAddress.district;
-      }
-      if (!prev.ward || prev.ward === oldParsedAddress.ward) {
-        next.ward = newParsedAddress.ward;
-      }
+      if (!prev.fullName || prev.fullName === oldProfile.fullName) next.fullName = currentProfile.fullName;
+      if (!prev.phoneNumber || prev.phoneNumber === oldProfile.phoneNumber) next.phoneNumber = currentProfile.phoneNumber;
+      if (!prev.email || prev.email === oldProfile.email) next.email = currentProfile.email;
+      if (!prev.address || prev.address === oldProfile.address) next.address = currentProfile.address;
+      if (!prev.province || prev.province === oldParsedAddress.province) next.province = newParsedAddress.province;
+      if (!prev.district || prev.district === oldParsedAddress.district) next.district = newParsedAddress.district;
+      if (!prev.ward || prev.ward === oldParsedAddress.ward) next.ward = newParsedAddress.ward;
       if (!prev.detailAddress || prev.detailAddress === oldParsedAddress.detailAddress) {
         next.detailAddress = newParsedAddress.detailAddress;
       }
@@ -166,6 +154,89 @@ export function ProductInfo({
 
   const discountPercent = originalPrice ? Math.round(((originalPrice - price) / originalPrice) * 100) : 0;
 
+  const buyNowItem = useMemo(
+    () => ({
+      id: id ?? 1,
+      image,
+      name: title,
+      brand,
+      category,
+      price,
+      quantity,
+    }),
+    [id, image, title, brand, category, price, quantity]
+  );
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function refreshQuote() {
+      if (!isLoggedIn || isAdmin) {
+        if (!mounted) return;
+        setQuotedItem(null);
+        setShippingFee(0);
+        setDiscount(0);
+        setAppliedVoucher("");
+        setAppliedCouponId(null);
+        return;
+      }
+
+      try {
+        const quote = await quoteOrder({
+          checkoutData: buildCheckoutSnapshot(checkoutData, user, promoCode),
+          cartItems: [buyNowItem],
+          couponCode: checkoutData?.voucherCode || promoCode,
+        });
+
+        if (!mounted) return;
+        const matched = quote.items[0];
+        setQuotedItem(matched ? { ...buyNowItem, price: matched.unitPrice, quantity: matched.quantity } : buyNowItem);
+        setShippingFee(quote.shippingFee);
+        setDiscount(quote.discountAmount);
+        setAppliedVoucher(quote.couponCode || "");
+        setAppliedCouponId(quote.couponId ?? null);
+      } catch (error) {
+        if (!mounted) return;
+        setQuotedItem(null);
+        setShippingFee(0);
+        setDiscount(0);
+        setAppliedVoucher("");
+        setAppliedCouponId(null);
+        if (checkoutData?.voucherCode || promoCode) {
+          toast.error("Không thể áp mã giảm giá", { description: error.message });
+        }
+      }
+    }
+
+    void refreshQuote();
+    return () => {
+      mounted = false;
+    };
+  }, [
+    isLoggedIn,
+    isAdmin,
+    buyNowItem,
+    checkoutData?.fullName,
+    checkoutData?.phoneNumber,
+    checkoutData?.email,
+    checkoutData?.address,
+    checkoutData?.province,
+    checkoutData?.district,
+    checkoutData?.ward,
+    checkoutData?.detailAddress,
+    checkoutData?.voucherCode,
+    checkoutData?.paymentMethod,
+    promoCode,
+    user?.name,
+    user?.phoneNumber,
+    user?.email,
+    user?.address,
+  ]);
+
+  const displayItem = quotedItem || buyNowItem;
+  const subtotal = displayItem.price * displayItem.quantity;
+  const total = subtotal + shippingFee - discount;
+
   const decreaseQuantity = () => {
     if (quantity > 1) setQuantity(quantity - 1);
   };
@@ -174,36 +245,6 @@ export function ProductInfo({
     if (quantity < 10) setQuantity(quantity + 1);
   };
 
-  const buyNowItem = {
-    id: id ?? 1,
-    image,
-    name: title,
-    brand,
-    category,
-    price,
-    quantity,
-  };
-
-  const subtotal = price * quantity;
-  const total = subtotal + shippingFee - discount;
-
-  useEffect(() => {
-    let mounted = true;
-    quoteShipping({
-      subtotal,
-      province: checkoutData?.province || "",
-      shippingAddress: checkoutData?.address || user?.address || "",
-    })
-      .then((quote) => {
-        if (mounted) setShippingFee(quote.shippingFee);
-      })
-      .catch(() => {
-        if (mounted) setShippingFee(0);
-      });
-    return () => {
-      mounted = false;
-    };
-  }, [subtotal, checkoutData?.province, checkoutData?.address, user?.address]);
   const checkoutInitialData = {
     fullName: user?.name || "",
     phoneNumber: user?.phoneNumber || "",
@@ -213,62 +254,14 @@ export function ProductInfo({
     district: checkoutData?.district || "",
     ward: checkoutData?.ward || "",
     detailAddress: checkoutData?.detailAddress || "",
-    voucherCode: checkoutData?.voucherCode || appliedVoucher,
+    voucherCode: checkoutData?.voucherCode || promoCode,
     paymentMethod: checkoutData?.paymentMethod || "COD",
   };
+
   const successTotalAmount = Number(createdOrder?.totalAmount ?? createdOrder?.total_amount ?? total);
   const successPaymentMethod =
     createdOrder?.paymentMethod ?? createdOrder?.payment_method ?? checkoutData?.paymentMethod;
   const successCustomerEmail = createdOrder?.guestEmail ?? createdOrder?.guest_email ?? checkoutData?.email;
-
-  const applyCouponCode = (rawCode) => {
-    const code = String(rawCode || "").trim().toUpperCase();
-
-    if (!code) {
-      setDiscount(0);
-      setAppliedVoucher("");
-      setAppliedCouponId(null);
-      return { ok: true, discountAmount: 0, code: "", couponId: null };
-    }
-
-    const coupon = availableCoupons.find((item) => String(item.code || "").toUpperCase() === code);
-    if (!coupon) return { ok: false, message: "Mã giảm giá không hợp lệ" };
-
-    const now = new Date();
-    const startOk = !coupon.start_date || new Date(coupon.start_date) <= now;
-    const endOk = !coupon.end_date || new Date(coupon.end_date) >= now;
-    const isActive = String(coupon.status || "").toLowerCase() === "active";
-    const usageLimit = Number(coupon.usage_limit || 0);
-    const usageCount = Number(coupon.usage_count || 0);
-    const usageOk = usageLimit <= 0 || usageCount < usageLimit;
-    const minOrderValue = Number(coupon.min_order_value || 0);
-
-    if (!isActive || !startOk || !endOk || !usageOk) {
-      return { ok: false, message: "Mã giảm giá đã hết hạn hoặc chưa khả dụng" };
-    }
-
-    if (subtotal < minOrderValue) {
-      return {
-        ok: false,
-        message: `Đơn hàng cần tối thiểu ${new Intl.NumberFormat("vi-VN").format(minOrderValue)} đ để áp mã`,
-      };
-    }
-
-    let computedDiscount = 0;
-    if (coupon.discount_type === "PERCENTAGE") {
-      computedDiscount = (subtotal * Number(coupon.discount_value || 0)) / 100;
-      const maxDiscount = Number(coupon.max_discount_amount || 0);
-      if (maxDiscount > 0) computedDiscount = Math.min(computedDiscount, maxDiscount);
-    } else {
-      computedDiscount = Number(coupon.discount_value || 0);
-    }
-
-    computedDiscount = Math.min(Math.max(Math.floor(computedDiscount), 0), subtotal);
-    setDiscount(computedDiscount);
-    setAppliedVoucher(code);
-    setAppliedCouponId(coupon.id ?? null);
-    return { ok: true, discountAmount: computedDiscount, code, couponId: coupon.id ?? null };
-  };
 
   const handleBuyNow = () => {
     if (!isLoggedIn) {
@@ -282,15 +275,37 @@ export function ProductInfo({
     setIsCheckoutModalOpen(true);
   };
 
-  const handleCheckoutSubmit = (data) => {
-    const result = applyCouponCode(data.voucherCode || "");
-    if (!result.ok) {
-      toast.error(result.message);
-      return;
+  const handleCheckoutSubmit = async (data) => {
+    const voucherCode = String(data.voucherCode || "").trim().toUpperCase();
+    const nextCheckoutData = { ...data, voucherCode };
+
+    try {
+      const quote = await quoteOrder({
+        checkoutData: nextCheckoutData,
+        cartItems: [buyNowItem],
+        couponCode: voucherCode,
+      });
+
+      setPromoCode(voucherCode);
+      setCheckoutData(nextCheckoutData);
+      const matched = quote.items[0];
+      setQuotedItem(
+        matched
+          ? { ...buyNowItem, price: matched.unitPrice, quantity: matched.quantity }
+          : buyNowItem
+      );
+      setShippingFee(quote.shippingFee);
+      setDiscount(quote.discountAmount);
+      setAppliedVoucher(quote.couponCode || "");
+      setAppliedCouponId(quote.couponId ?? null);
+      setIsCheckoutModalOpen(false);
+      setIsOrderConfirmationModalOpen(true);
+    } catch (error) {
+      toast.error("Không thể tiếp tục đơn hàng", {
+        description: error.message,
+      });
+      throw error;
     }
-    setCheckoutData({ ...data, voucherCode: result.code });
-    setIsCheckoutModalOpen(false);
-    setIsOrderConfirmationModalOpen(true);
   };
 
   const handleEditOrder = () => {
@@ -305,9 +320,7 @@ export function ProductInfo({
       const order = await createOrder({
         checkoutData,
         cartItems: [buyNowItem],
-        couponId: appliedCouponId,
-        shippingFee,
-        discountAmount: discount,
+        couponCode: checkoutData?.voucherCode || promoCode,
       });
       setCreatedOrder(order);
       setIsOrderConfirmationModalOpen(false);
@@ -425,7 +438,7 @@ export function ProductInfo({
           <Button
             className="h-10 flex-1 bg-gradient-to-r from-purple-600 to-blue-600 text-xs text-white shadow-md shadow-purple-500/20 hover:from-purple-700 hover:to-blue-700"
             disabled={!inStock || isAdmin}
-            onClick={() => {
+            onClick={async () => {
               if (!isLoggedIn) {
                 setShowLoginPrompt(true);
                 return;
@@ -434,8 +447,12 @@ export function ProductInfo({
                 toast.error("Tài khoản admin không thể mua hàng");
                 return;
               }
-              addCartItem(buyNowItem, quantity);
-              toast.success("Đã thêm vào giỏ hàng");
+              try {
+                await addCartItem(buyNowItem, quantity);
+                toast.success("Đã thêm vào giỏ hàng");
+              } catch (error) {
+                toast.error("Không thể thêm vào giỏ hàng", { description: error.message });
+              }
             }}
           >
             <ShoppingCart className="mr-1.5 h-4 w-4" />
@@ -483,7 +500,7 @@ export function ProductInfo({
           onConfirm={handleOrderConfirm}
           onEdit={handleEditOrder}
           checkoutData={checkoutData}
-          cartItems={[buyNowItem]}
+          cartItems={[displayItem]}
           subtotal={subtotal}
           shipping={shippingFee}
           discount={discount}

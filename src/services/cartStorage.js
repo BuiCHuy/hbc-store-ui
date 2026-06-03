@@ -61,14 +61,15 @@ function toServerItems(serverItems) {
 }
 
 async function syncFromServer() {
-  if (!isLoggedInUser()) return;
+  if (!isLoggedInUser()) return [];
   try {
     const serverItems = await getMyCart();
     const normalized = toServerItems(serverItems);
     setUserCart(normalized);
     emitChanged(normalized);
+    return normalized;
   } catch {
-    // keep local fallback
+    return getUserCart();
   }
 }
 
@@ -118,8 +119,9 @@ export async function addCartItem(product, quantity = 1) {
     try {
       const serverItems = await upsertCartItem(Number(normalizedProduct.id), existingItem ? existingItem.quantity + quantity : quantity);
       saveCartItems(toServerItems(serverItems));
-    } catch {
-      // keep optimistic local state
+    } catch (error) {
+      await syncFromServer();
+      throw error;
     }
   }
   return getUserCart();
@@ -136,8 +138,9 @@ export async function updateCartItemQuantity(productId, quantity) {
     try {
       const serverItems = await upsertCartItem(Number(productId), quantity);
       saveCartItems(toServerItems(serverItems));
-    } catch {
-      // keep optimistic local state
+    } catch (error) {
+      await syncFromServer();
+      throw error;
     }
   }
 }
@@ -150,8 +153,9 @@ export async function deleteCartItem(productId) {
     try {
       const serverItems = await removeCartItem(Number(productId));
       saveCartItems(toServerItems(serverItems));
-    } catch {
-      // keep optimistic local state
+    } catch (error) {
+      await syncFromServer();
+      throw error;
     }
   }
 }
@@ -163,8 +167,9 @@ export async function clearCartItems() {
     try {
       const serverItems = await clearMyCart();
       saveCartItems(toServerItems(serverItems));
-    } catch {
-      // keep local empty
+    } catch (error) {
+      await syncFromServer();
+      throw error;
     }
   }
 }

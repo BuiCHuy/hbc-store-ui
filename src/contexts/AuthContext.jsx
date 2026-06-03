@@ -110,7 +110,8 @@ export function AuthProvider({ children }) {
     setUser(null);
     localStorage.removeItem("auth_user");
     setCartUserKey("guest");
-    toast.success("Đăng xuất thành công!");
+    toast.success("Đăng xuất thành công");
+    window.location.reload();
   };
 
   const updateUserProfile = async (profilePatch) => {

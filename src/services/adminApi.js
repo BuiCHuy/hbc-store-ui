@@ -169,25 +169,50 @@ export async function updateOrderStatus(id, status) {
 }
 
 export async function cancelMyOrder(id) {
-  return updateOrderStatus(id, "CANCELLED");
+  const data = await apiRequest(`/orders/${id}/cancel`, {
+    method: "PATCH",
+  });
+  return normalizeOrder(data);
 }
 
-function toOrderPayload({ checkoutData, cartItems, couponId = null, shippingFee = 0, discountAmount = 0 }) {
+function toOrderPayload({ checkoutData, cartItems, couponCode = "" }) {
   return {
     customerName: checkoutData.fullName,
     customerPhone: checkoutData.phoneNumber,
     customerEmail: checkoutData.email || "",
     shippingAddress: checkoutData.address,
     paymentMethod: checkoutData.paymentMethod,
-    couponId,
-    shippingFee,
-    discountAmount,
+    couponCode: String(couponCode || "").trim() || null,
     items: cartItems.map((item) => ({
       productId: Number(item.id),
       quantity: Number(item.quantity),
-      unitPrice: Number(item.price),
     })),
   };
+}
+
+export function normalizeOrderQuote(quote) {
+  return {
+    items: Array.isArray(quote?.items)
+      ? quote.items.map((item) => ({
+          productId: Number(item.productId),
+          productName: item.productName,
+          quantity: Number(item.quantity || 0),
+          unitPrice: Number(item.unitPrice || 0),
+          totalPrice: Number(item.totalPrice || 0),
+        }))
+      : [],
+    couponId: quote?.couponId ?? null,
+    couponCode: quote?.couponCode || "",
+    subtotalAmount: Number(quote?.subtotalAmount || 0),
+    shippingFee: Number(quote?.shippingFee || 0),
+    discountAmount: Number(quote?.discountAmount || 0),
+    totalAmount: Number(quote?.totalAmount || 0),
+  };
+}
+
+export async function quoteOrder(orderData) {
+  const data = await apiPost("/orders/quote", toOrderPayload(orderData));
+  return normalizeOrderQuote(data);
 }
 
 export async function createOrder(orderData) {
@@ -243,6 +268,27 @@ export async function markAllAdminNotificationsAsRead() {
   return apiRequest("/admin/notifications/read-all", {
     method: "PATCH",
   });
+}
+
+export function normalizeReviewSettings(settings) {
+  return {
+    reviewApprovalEnabled: Boolean(settings.reviewApprovalEnabled),
+  };
+}
+
+export async function getReviewSettings() {
+  const data = await apiGet("/admin/review-settings");
+  return normalizeReviewSettings(data);
+}
+
+export async function updateReviewSettings(settings) {
+  const data = await apiRequest("/admin/review-settings", {
+    method: "PATCH",
+    body: JSON.stringify({
+      reviewApprovalEnabled: Boolean(settings.reviewApprovalEnabled),
+    }),
+  });
+  return normalizeReviewSettings(data);
 }
 
 export async function updateShippingSettings(settings) {

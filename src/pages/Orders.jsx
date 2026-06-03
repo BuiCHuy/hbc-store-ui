@@ -77,7 +77,7 @@ export function Orders() {
         const paramsObject = Object.fromEntries(searchParams.entries());
         const result = await confirmPayOSReturn(paramsObject);
         if (active) {
-          if (result?.message === "Payment confirmed") {
+          if (result?.code === "00" && /thanh toán|payment confirmed/i.test(result?.message || "")) {
             toast.success("Thanh toán PayOS thành công");
           } else {
             toast.info("Bạn đã hủy hoặc chưa hoàn tất thanh toán");

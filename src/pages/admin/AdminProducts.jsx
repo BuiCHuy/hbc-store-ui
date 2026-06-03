@@ -381,7 +381,7 @@ export function AdminProducts() {
                             />
                           ) : (
                             <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-gray-200 bg-gray-100 text-[10px] font-medium text-gray-400">
-                              No image
+                              Chưa có ảnh
                             </div>
                           )}
                           <div>

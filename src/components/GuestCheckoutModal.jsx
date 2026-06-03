@@ -48,6 +48,7 @@ export function GuestCheckoutModal({ isOpen, onClose, onSubmit, initialData, sub
   const [wardOptions, setWardOptions] = useState([]);
   const [addressLoading, setAddressLoading] = useState(false);
   const [addressError, setAddressError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [shippingQuote, setShippingQuote] = useState({
     shippingFee: 0,
     regionLabel: "Chưa xác định",
@@ -169,7 +170,7 @@ export function GuestCheckoutModal({ isOpen, onClose, onSubmit, initialData, sub
     return Object.keys(nextErrors).length === 0;
   };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
     if (!validateForm()) return;
 
@@ -179,11 +180,16 @@ export function GuestCheckoutModal({ isOpen, onClose, onSubmit, initialData, sub
       shouldShowDistrict ? formData.district : "",
       formData.province
     );
-    onSubmit({
-      ...formData,
-      district: shouldShowDistrict ? formData.district : "",
-      address,
-    });
+    setIsSubmitting(true);
+    try {
+      await onSubmit({
+        ...formData,
+        district: shouldShowDistrict ? formData.district : "",
+        address,
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -392,10 +398,10 @@ export function GuestCheckoutModal({ isOpen, onClose, onSubmit, initialData, sub
           </div>
 
           <div className="mt-8 flex items-center justify-end gap-3 border-t border-gray-200 pt-6">
-            <Button type="button" variant="outline" onClick={onClose} className="h-12 px-6">
+            <Button type="button" variant="outline" onClick={onClose} className="h-12 px-6" disabled={isSubmitting}>
               Hủy bỏ
             </Button>
-            <Button type="submit" className="h-12 bg-blue-600 px-8 text-white hover:bg-blue-700">
+            <Button type="submit" className="h-12 bg-blue-600 px-8 text-white hover:bg-blue-700" disabled={isSubmitting}>
               Tiếp tục
             </Button>
           </div>

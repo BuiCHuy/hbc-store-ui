@@ -7,6 +7,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { LoginPromptModal } from "../LoginPromptModal";
 import {
   createProductReview,
+  getProductReviewEligibility,
   getMyProductReview,
   getProductReviews,
   replyProductReview,
@@ -27,6 +28,7 @@ export function ProductTabs({ product }) {
   const [activeTab, setActiveTab] = useState("specifications");
   const [reviews, setReviews] = useState([]);
   const [myReview, setMyReview] = useState(null);
+  const [canReview, setCanReview] = useState(false);
   const [isLoadingReviews, setIsLoadingReviews] = useState(false);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
@@ -59,17 +61,20 @@ export function ProductTabs({ product }) {
       if (!product?.id) return;
       setIsLoadingReviews(true);
       try {
-        const [approvedReviews, mine] = await Promise.all([
+        const [approvedReviews, mine, eligibility] = await Promise.all([
           getProductReviews(product.id),
           isLoggedIn ? getMyProductReview(product.id) : Promise.resolve(null),
+          isLoggedIn && !isAdmin ? getProductReviewEligibility(product.id) : Promise.resolve(false),
         ]);
         if (!mounted) return;
         setReviews(approvedReviews);
         setMyReview(mine);
+        setCanReview(Boolean(eligibility));
       } catch {
         if (!mounted) return;
         setReviews([]);
         setMyReview(null);
+        setCanReview(false);
       } finally {
         if (mounted) setIsLoadingReviews(false);
       }
@@ -78,7 +83,7 @@ export function ProductTabs({ product }) {
     return () => {
       mounted = false;
     };
-  }, [product?.id, isLoggedIn]);
+  }, [product?.id, isLoggedIn, isAdmin]);
 
   const averageRating = useMemo(() => {
     if (reviews.length === 0) return 0;
@@ -98,6 +103,13 @@ export function ProductTabs({ product }) {
   const handleSubmitReview = async () => {
     if (!isLoggedIn) {
       setShowLoginPrompt(true);
+      return;
+    }
+
+    const latestEligibility = await getProductReviewEligibility(product.id);
+    setCanReview(Boolean(latestEligibility));
+    if (!latestEligibility) {
+      toast.info("Chỉ có thể đánh giá sau khi bạn đã mua và nhận hàng thành công");
       return;
     }
 
@@ -207,6 +219,7 @@ export function ProductTabs({ product }) {
               </div>
             </div>
 
+            {isLoggedIn && !isAdmin && canReview ? (
             <div className="rounded-lg border border-gray-200 p-4">
               <p className="mb-2 text-sm font-semibold text-gray-900">Viết đánh giá</p>
               {myReview && !isEditingReview && (
@@ -262,6 +275,7 @@ export function ProductTabs({ product }) {
                 )}
               </div>
             </div>
+            ) : null}
 
             {isLoadingReviews ? (
               <p className="text-sm text-gray-500">Đang tải đánh giá...</p>

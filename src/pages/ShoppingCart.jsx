@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Trash2, Minus, Plus, ShoppingBag, ShieldCheck, Ticket, ChevronRight, Home } from "lucide-react";
 import { Button } from "../components/ui/button";
@@ -9,9 +9,8 @@ import { deleteCartItem, getCartItems, updateCartItemQuantity } from "../service
 import {
   createOrder,
   createPayOSPayment,
-  getCoupons,
   getOrderById,
-  quoteShipping,
+  quoteOrder,
   syncPayOSPaymentStatus,
 } from "../services/adminApi";
 import { useAuth } from "../contexts/AuthContext";
@@ -20,6 +19,21 @@ import { OrderConfirmationModal } from "../components/OrderConfirmationModal";
 import { OrderSuccessModal } from "../components/OrderSuccessModal";
 import { PaymentQrModal } from "../components/PaymentQrModal";
 import { parseShippingAddress } from "../lib/shipping";
+
+function buildCheckoutSnapshot(checkoutData, user, voucherCode = "") {
+  return {
+    fullName: checkoutData?.fullName || user?.name || "",
+    phoneNumber: checkoutData?.phoneNumber || user?.phoneNumber || "",
+    email: checkoutData?.email || user?.email || "",
+    address: checkoutData?.address || user?.address || "",
+    province: checkoutData?.province || "",
+    district: checkoutData?.district || "",
+    ward: checkoutData?.ward || "",
+    detailAddress: checkoutData?.detailAddress || "",
+    voucherCode: String(checkoutData?.voucherCode || voucherCode || "").trim().toUpperCase(),
+    paymentMethod: checkoutData?.paymentMethod || "COD",
+  };
+}
 
 export function ShoppingCart() {
   const navigate = useNavigate();
@@ -36,8 +50,8 @@ export function ShoppingCart() {
   const [discount, setDiscount] = useState(0);
   const [appliedVoucher, setAppliedVoucher] = useState("");
   const [appliedCouponId, setAppliedCouponId] = useState(null);
-  const [availableCoupons, setAvailableCoupons] = useState([]);
   const [selectedItems, setSelectedItems] = useState(() => getCartItems().map((item) => item.id));
+  const [quotedItems, setQuotedItems] = useState([]);
 
   const [isCheckoutModalOpen, setIsCheckoutModalOpen] = useState(false);
   const [isOrderConfirmationModalOpen, setIsOrderConfirmationModalOpen] = useState(false);
@@ -76,30 +90,15 @@ export function ShoppingCart() {
       const oldProfile = previousProfileRef.current;
       const oldParsedAddress = parseShippingAddress(oldProfile.address);
       const newParsedAddress = parseShippingAddress(currentProfile.address);
-
       const next = { ...prev };
 
-      if (!prev.fullName || prev.fullName === oldProfile.fullName) {
-        next.fullName = currentProfile.fullName;
-      }
-      if (!prev.phoneNumber || prev.phoneNumber === oldProfile.phoneNumber) {
-        next.phoneNumber = currentProfile.phoneNumber;
-      }
-      if (!prev.email || prev.email === oldProfile.email) {
-        next.email = currentProfile.email;
-      }
-      if (!prev.address || prev.address === oldProfile.address) {
-        next.address = currentProfile.address;
-      }
-      if (!prev.province || prev.province === oldParsedAddress.province) {
-        next.province = newParsedAddress.province;
-      }
-      if (!prev.district || prev.district === oldParsedAddress.district) {
-        next.district = newParsedAddress.district;
-      }
-      if (!prev.ward || prev.ward === oldParsedAddress.ward) {
-        next.ward = newParsedAddress.ward;
-      }
+      if (!prev.fullName || prev.fullName === oldProfile.fullName) next.fullName = currentProfile.fullName;
+      if (!prev.phoneNumber || prev.phoneNumber === oldProfile.phoneNumber) next.phoneNumber = currentProfile.phoneNumber;
+      if (!prev.email || prev.email === oldProfile.email) next.email = currentProfile.email;
+      if (!prev.address || prev.address === oldProfile.address) next.address = currentProfile.address;
+      if (!prev.province || prev.province === oldParsedAddress.province) next.province = newParsedAddress.province;
+      if (!prev.district || prev.district === oldParsedAddress.district) next.district = newParsedAddress.district;
+      if (!prev.ward || prev.ward === oldParsedAddress.ward) next.ward = newParsedAddress.ward;
       if (!prev.detailAddress || prev.detailAddress === oldParsedAddress.detailAddress) {
         next.detailAddress = newParsedAddress.detailAddress;
       }
@@ -112,20 +111,6 @@ export function ShoppingCart() {
       previousProfileRef.current = currentProfile;
     }
   }, [user?.name, user?.phoneNumber, user?.email, user?.address]);
-
-  useEffect(() => {
-    let mounted = true;
-    getCoupons()
-      .then((data) => {
-        if (mounted) setAvailableCoupons(Array.isArray(data) ? data : []);
-      })
-      .catch(() => {
-        if (mounted) setAvailableCoupons([]);
-      });
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   useEffect(() => {
     if (!isMomoPaymentModalOpen || !createdOrder?.id) return undefined;
@@ -173,81 +158,87 @@ export function ShoppingCart() {
     };
   }, [isMomoPaymentModalOpen, createdOrder?.id, momoPayment, pendingCheckoutItemIds]);
 
-  const selectedCartItems = cartItems.filter((item) => selectedItems.includes(item.id));
-  const subtotal = selectedCartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
-  const total = subtotal + shippingFee - discount;
+  const selectedCartItems = useMemo(
+    () => cartItems.filter((item) => selectedItems.includes(item.id)),
+    [cartItems, selectedItems]
+  );
 
   useEffect(() => {
     let mounted = true;
-    quoteShipping({
-      subtotal,
-      province: checkoutData?.province || "",
-      shippingAddress: checkoutData?.address || user?.address || "",
-    })
-      .then((quote) => {
-        if (mounted) setShippingFee(quote.shippingFee);
-      })
-      .catch(() => {
-        if (mounted) setShippingFee(0);
-      });
+
+    async function refreshQuote() {
+      if (!isLoggedIn || isAdmin || selectedCartItems.length === 0) {
+        if (!mounted) return;
+        setQuotedItems([]);
+        setShippingFee(0);
+        setDiscount(0);
+        setAppliedVoucher("");
+        setAppliedCouponId(null);
+        return;
+      }
+
+      try {
+        const quote = await quoteOrder({
+          checkoutData: buildCheckoutSnapshot(checkoutData, user, promoCode),
+          cartItems: selectedCartItems,
+          couponCode: checkoutData?.voucherCode || promoCode,
+        });
+
+        if (!mounted) return;
+        setShippingFee(quote.shippingFee);
+        setDiscount(quote.discountAmount);
+        setAppliedVoucher(quote.couponCode || "");
+        setAppliedCouponId(quote.couponId ?? null);
+        setQuotedItems(
+          selectedCartItems.map((item) => {
+            const matched = quote.items.find((quoted) => String(quoted.productId) === String(item.id));
+            return matched ? { ...item, price: matched.unitPrice, quantity: matched.quantity } : item;
+          })
+        );
+      } catch (error) {
+        if (!mounted) return;
+        setQuotedItems([]);
+        setShippingFee(0);
+        setDiscount(0);
+        setAppliedVoucher("");
+        setAppliedCouponId(null);
+        if (checkoutData?.voucherCode || promoCode) {
+          toast.error("Không thể áp mã giảm giá", { description: error.message });
+        }
+      }
+    }
+
+    void refreshQuote();
     return () => {
       mounted = false;
     };
-  }, [subtotal, checkoutData?.province, checkoutData?.address, user?.address]);
+  }, [
+    isLoggedIn,
+    isAdmin,
+    selectedCartItems,
+    checkoutData?.fullName,
+    checkoutData?.phoneNumber,
+    checkoutData?.email,
+    checkoutData?.address,
+    checkoutData?.province,
+    checkoutData?.district,
+    checkoutData?.ward,
+    checkoutData?.detailAddress,
+    checkoutData?.voucherCode,
+    checkoutData?.paymentMethod,
+    promoCode,
+    user?.name,
+    user?.phoneNumber,
+    user?.email,
+    user?.address,
+  ]);
 
-  const applyCouponCode = (rawCode) => {
-    const code = String(rawCode || "").trim().toUpperCase();
-
-    if (!code) {
-      setDiscount(0);
-      setAppliedVoucher("");
-      setAppliedCouponId(null);
-      return { ok: true, discountAmount: 0, code: "", couponId: null };
-    }
-
-    if (subtotal <= 0) return { ok: false, message: "Vui lòng chọn sản phẩm trước khi áp mã" };
-
-    const coupon = availableCoupons.find((item) => String(item.code || "").toUpperCase() === code);
-    if (!coupon) return { ok: false, message: "Mã giảm giá không hợp lệ" };
-
-    const now = new Date();
-    const startOk = !coupon.start_date || new Date(coupon.start_date) <= now;
-    const endOk = !coupon.end_date || new Date(coupon.end_date) >= now;
-    const isActive = String(coupon.status || "").toLowerCase() === "active";
-    const usageLimit = Number(coupon.usage_limit || 0);
-    const usageCount = Number(coupon.usage_count || 0);
-    const usageOk = usageLimit <= 0 || usageCount < usageLimit;
-    const minOrderValue = Number(coupon.min_order_value || 0);
-
-    if (!isActive || !startOk || !endOk || !usageOk) {
-      return { ok: false, message: "Mã giảm giá đã hết hạn hoặc chưa khả dụng" };
-    }
-    if (subtotal < minOrderValue) {
-      return {
-        ok: false,
-        message: `Đơn hàng cần tối thiểu ${formatPrice(minOrderValue)} đ để áp mã`,
-      };
-    }
-
-    let computedDiscount = 0;
-    if (coupon.discount_type === "PERCENTAGE") {
-      computedDiscount = (subtotal * Number(coupon.discount_value || 0)) / 100;
-      const maxDiscount = Number(coupon.max_discount_amount || 0);
-      if (maxDiscount > 0) computedDiscount = Math.min(computedDiscount, maxDiscount);
-    } else {
-      computedDiscount = Number(coupon.discount_value || 0);
-    }
-
-    computedDiscount = Math.min(Math.max(Math.floor(computedDiscount), 0), subtotal);
-    setDiscount(computedDiscount);
-    setAppliedVoucher(code);
-    setAppliedCouponId(coupon.id ?? null);
-    return { ok: true, discountAmount: computedDiscount, code, couponId: coupon.id ?? null };
-  };
+  const displayCartItems = quotedItems.length ? quotedItems : selectedCartItems;
+  const subtotal = displayCartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
+  const total = subtotal + shippingFee - discount;
 
   const handleSelectAll = (checked) => {
-    if (checked) setSelectedItems(cartItems.map((item) => item.id));
-    else setSelectedItems([]);
+    setSelectedItems(checked ? cartItems.map((item) => item.id) : []);
   };
 
   const handleSelectItem = (id, checked) => {
@@ -258,31 +249,36 @@ export function ShoppingCart() {
   const updateQuantity = async (id, newQuantity) => {
     if (newQuantity < 1) return;
     if (newQuantity > 10) {
-      toast.warning("Chỉ được mua tối đa 10 sản phẩm mỗi loại!");
+      toast.warning("Chỉ được mua tối đa 10 sản phẩm mỗi loại");
       return;
     }
-    await updateCartItemQuantity(id, newQuantity);
-    setCartItems(getCartItems());
+    try {
+      await updateCartItemQuantity(id, newQuantity);
+      setCartItems(getCartItems());
+    } catch (error) {
+      setCartItems(getCartItems());
+      toast.error("Không thể cập nhật số lượng", { description: error.message });
+    }
   };
 
   const removeItem = async (id) => {
-    await deleteCartItem(id);
-    const latestItems = getCartItems();
-    setCartItems(latestItems);
-    setSelectedItems((prev) => prev.filter((itemId) => itemId !== id));
-    toast.success("Đã xóa khỏi giỏ hàng");
+    try {
+      await deleteCartItem(id);
+      const latestItems = getCartItems();
+      setCartItems(latestItems);
+      setSelectedItems((prev) => prev.filter((itemId) => itemId !== id));
+      toast.success("Đã xóa khỏi giỏ hàng");
+    } catch (error) {
+      setCartItems(getCartItems());
+      toast.error("Không thể xóa sản phẩm", { description: error.message });
+    }
   };
 
-  const handleApplyPromo = (e) => {
-    e.preventDefault();
-    const result = applyCouponCode(promoCode);
-    if (!result.ok) {
-      setDiscount(0);
-      setAppliedVoucher("");
-      toast.error(result.message);
-      return;
-    }
-    toast.success(result.code ? "Áp dụng mã giảm giá thành công" : "Đã bỏ mã giảm giá");
+  const handleApplyPromo = (event) => {
+    event.preventDefault();
+    const normalizedCode = String(promoCode || "").trim().toUpperCase();
+    setPromoCode(normalizedCode);
+    toast.success(normalizedCode ? "Đang kiểm tra mã giảm giá" : "Đã bỏ mã giảm giá");
   };
 
   const handleCheckout = () => {
@@ -296,21 +292,44 @@ export function ShoppingCart() {
       return;
     }
     if (selectedItems.length === 0) {
-      toast.error("Vui lòng chọn ít nhất một sản phẩm để thanh toán!");
+      toast.error("Vui lòng chọn ít nhất một sản phẩm để thanh toán");
       return;
     }
     setIsCheckoutModalOpen(true);
   };
 
-  const handleCheckoutSubmit = (data) => {
-    const result = applyCouponCode(data.voucherCode || "");
-    if (!result.ok) {
-      toast.error(result.message);
-      return;
+  const handleCheckoutSubmit = async (data) => {
+    const voucherCode = String(data.voucherCode || "").trim().toUpperCase();
+    const nextCheckoutData = {
+      ...data,
+      voucherCode,
+    };
+
+    try {
+      const quote = await quoteOrder({
+        checkoutData: nextCheckoutData,
+        cartItems: selectedCartItems,
+        couponCode: voucherCode,
+      });
+
+      setCheckoutData(nextCheckoutData);
+      setPromoCode(voucherCode);
+      setShippingFee(quote.shippingFee);
+      setDiscount(quote.discountAmount);
+      setAppliedVoucher(quote.couponCode || "");
+      setAppliedCouponId(quote.couponId ?? null);
+      setQuotedItems(
+        selectedCartItems.map((item) => {
+          const matched = quote.items.find((quoted) => String(quoted.productId) === String(item.id));
+          return matched ? { ...item, price: matched.unitPrice, quantity: matched.quantity } : item;
+        })
+      );
+      setIsCheckoutModalOpen(false);
+      setIsOrderConfirmationModalOpen(true);
+    } catch (error) {
+      toast.error("Không thể tiếp tục đơn hàng", { description: error.message });
+      throw error;
     }
-    setCheckoutData({ ...data, voucherCode: result.code });
-    setIsCheckoutModalOpen(false);
-    setIsOrderConfirmationModalOpen(true);
   };
 
   const handleEditOrder = () => {
@@ -326,18 +345,10 @@ export function ShoppingCart() {
       const order = await createOrder({
         checkoutData,
         cartItems: selectedCartItems,
-        couponId: appliedCouponId,
-        shippingFee,
-        discountAmount: discount,
+        couponCode: checkoutData?.voucherCode || promoCode,
       });
       setCreatedOrder(order);
-      if (checkoutItemIds.length > 0) {
-        await Promise.all(checkoutItemIds.map((itemId) => deleteCartItem(itemId)));
-      }
-      const latestItems = getCartItems();
-      setCartItems(latestItems);
-      setSelectedItems(latestItems.map((item) => item.id));
-      setPendingCheckoutItemIds([]);
+      setPendingCheckoutItemIds(checkoutItemIds);
       setIsOrderConfirmationModalOpen(false);
 
       if (checkoutData?.paymentMethod === "BANK_TRANSFER") {
@@ -352,13 +363,19 @@ export function ShoppingCart() {
             description: paymentError.message,
           });
         }
-      } else {
-        setIsOrderSuccessModalOpen(true);
+        return;
       }
+
+      if (checkoutItemIds.length > 0) {
+        await Promise.all(checkoutItemIds.map((itemId) => deleteCartItem(itemId)));
+      }
+      const latestItems = getCartItems();
+      setCartItems(latestItems);
+      setSelectedItems(latestItems.map((item) => item.id));
+      setPendingCheckoutItemIds([]);
+      setIsOrderSuccessModalOpen(true);
     } catch (error) {
-      toast.error("Không thể tạo đơn hàng", {
-        description: error.message,
-      });
+      toast.error("Không thể tạo đơn hàng", { description: error.message });
     } finally {
       setIsSubmittingOrder(false);
     }
@@ -373,7 +390,7 @@ export function ShoppingCart() {
     district: checkoutData?.district || "",
     ward: checkoutData?.ward || "",
     detailAddress: checkoutData?.detailAddress || "",
-    voucherCode: checkoutData?.voucherCode || appliedVoucher || promoCode,
+    voucherCode: checkoutData?.voucherCode || promoCode,
     paymentMethod: checkoutData?.paymentMethod || "COD",
   };
 
@@ -410,7 +427,7 @@ export function ShoppingCart() {
             </div>
             <h2 className="mb-4 text-2xl font-bold text-gray-900">Giỏ hàng đang trống</h2>
             <p className="mx-auto mb-8 max-w-md text-gray-500">
-              Có vẻ như bạn chưa thêm sản phẩm nào vào giỏ hàng. Hãy khám phá thế giới mô hình của chúng tôi ngay!
+              Có vẻ như bạn chưa thêm sản phẩm nào vào giỏ hàng. Hãy khám phá thế giới mô hình của chúng tôi ngay.
             </p>
             <Button onClick={() => navigate("/")} className="h-12 rounded-full bg-purple-600 px-8 text-white hover:bg-purple-700">
               Tiếp tục mua sắm
@@ -548,7 +565,7 @@ export function ShoppingCart() {
 
                 <div className="mt-6 flex items-center justify-center gap-2 text-sm text-gray-500">
                   <ShieldCheck className="h-5 w-5 text-green-500" />
-                  <span>Thanh toán an toàn & Bảo mật 100%</span>
+                  <span>Thanh toán an toàn và bảo mật</span>
                 </div>
               </div>
             </div>
@@ -571,7 +588,7 @@ export function ShoppingCart() {
           onConfirm={handleOrderConfirm}
           onEdit={handleEditOrder}
           checkoutData={checkoutData}
-          cartItems={selectedCartItems}
+          cartItems={displayCartItems}
           subtotal={subtotal}
           shipping={shippingFee}
           discount={discount}

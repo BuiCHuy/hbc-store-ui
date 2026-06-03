@@ -1,24 +1,44 @@
 import React, { useEffect, useState } from "react";
-import { Copy, Link2, RefreshCw, ShieldCheck, Truck } from "lucide-react";
+import {
+  CheckCircle2,
+  Copy,
+  Link2,
+  MessageSquareMore,
+  RefreshCw,
+  ShieldCheck,
+  Truck,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "../../components/ui/button";
+import { Checkbox } from "../../components/ui/checkbox";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
-import { getPayOSSettings, getShippingSettings, updateShippingSettings } from "../../services/adminApi";
 import {
-  DEFAULT_SHIPPING_FEES,
-} from "../../lib/shipping";
+  getPayOSSettings,
+  getReviewSettings,
+  getShippingSettings,
+  updateReviewSettings,
+  updateShippingSettings,
+} from "../../services/adminApi";
+import { DEFAULT_SHIPPING_FEES } from "../../lib/shipping";
 
 const tabs = [
   { id: "payos", label: "Thanh toán PayOS" },
   { id: "shipping", label: "Phí ship" },
+  { id: "reviews", label: "Bài đánh giá" },
 ];
+
+const DEFAULT_REVIEW_SETTINGS = {
+  reviewApprovalEnabled: true,
+};
 
 export function AdminSettings() {
   const [activeTab, setActiveTab] = useState("payos");
-  const [settings, setSettings] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [paymentSettings, setPaymentSettings] = useState(null);
+  const [isPaymentLoading, setIsPaymentLoading] = useState(true);
+
   const [isShippingLoading, setIsShippingLoading] = useState(true);
+  const [isSavingShipping, setIsSavingShipping] = useState(false);
   const [shippingForm, setShippingForm] = useState(() => ({
     northFee: DEFAULT_SHIPPING_FEES.north,
     centralFee: DEFAULT_SHIPPING_FEES.central,
@@ -26,24 +46,23 @@ export function AdminSettings() {
     freeShippingThreshold: DEFAULT_SHIPPING_FEES.freeShippingThreshold,
   }));
 
-  const loadSettings = async () => {
-    setIsLoading(true);
+  const [isReviewLoading, setIsReviewLoading] = useState(true);
+  const [isSavingReview, setIsSavingReview] = useState(false);
+  const [reviewForm, setReviewForm] = useState(DEFAULT_REVIEW_SETTINGS);
+
+  const loadPaymentSettings = async () => {
+    setIsPaymentLoading(true);
     try {
       const data = await getPayOSSettings();
-      setSettings(data);
+      setPaymentSettings(data);
     } catch (error) {
       toast.error("Không thể tải cài đặt thanh toán", {
         description: error.message,
       });
     } finally {
-      setIsLoading(false);
+      setIsPaymentLoading(false);
     }
   };
-
-  useEffect(() => {
-    loadSettings();
-    loadShippingSettings();
-  }, []);
 
   const loadShippingSettings = async () => {
     setIsShippingLoading(true);
@@ -59,6 +78,26 @@ export function AdminSettings() {
     }
   };
 
+  const loadReviewSettings = async () => {
+    setIsReviewLoading(true);
+    try {
+      const data = await getReviewSettings();
+      setReviewForm(data);
+    } catch (error) {
+      toast.error("Không thể tải cài đặt bài đánh giá", {
+        description: error.message,
+      });
+    } finally {
+      setIsReviewLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadPaymentSettings();
+    loadShippingSettings();
+    loadReviewSettings();
+  }, []);
+
   const copyValue = async (value, label) => {
     try {
       await navigator.clipboard.writeText(value);
@@ -73,6 +112,7 @@ export function AdminSettings() {
   };
 
   const handleSaveShipping = async () => {
+    setIsSavingShipping(true);
     try {
       const saved = await updateShippingSettings(shippingForm);
       setShippingForm(saved);
@@ -81,6 +121,8 @@ export function AdminSettings() {
       toast.error("Không thể lưu cài đặt phí ship", {
         description: error.message,
       });
+    } finally {
+      setIsSavingShipping(false);
     }
   };
 
@@ -91,6 +133,8 @@ export function AdminSettings() {
       southFee: DEFAULT_SHIPPING_FEES.south,
       freeShippingThreshold: DEFAULT_SHIPPING_FEES.freeShippingThreshold,
     };
+
+    setIsSavingShipping(true);
     try {
       const saved = await updateShippingSettings(defaults);
       setShippingForm(saved);
@@ -99,6 +143,23 @@ export function AdminSettings() {
       toast.error("Không thể khôi phục phí ship", {
         description: error.message,
       });
+    } finally {
+      setIsSavingShipping(false);
+    }
+  };
+
+  const handleSaveReviewSettings = async () => {
+    setIsSavingReview(true);
+    try {
+      const saved = await updateReviewSettings(reviewForm);
+      setReviewForm(saved);
+      toast.success("Đã lưu cài đặt bài đánh giá");
+    } catch (error) {
+      toast.error("Không thể lưu cài đặt bài đánh giá", {
+        description: error.message,
+      });
+    } finally {
+      setIsSavingReview(false);
     }
   };
 
@@ -108,12 +169,12 @@ export function AdminSettings() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Cài đặt</h1>
           <p className="mt-1 text-gray-600">
-            Cấu hình thanh toán, webhook và phí vận chuyển
+            Cấu hình thanh toán, vận chuyển và quy trình duyệt đánh giá.
           </p>
         </div>
         {activeTab === "payos" ? (
-          <Button variant="outline" onClick={loadSettings} disabled={isLoading}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+          <Button variant="outline" onClick={loadPaymentSettings} disabled={isPaymentLoading}>
+            <RefreshCw className={`mr-2 h-4 w-4 ${isPaymentLoading ? "animate-spin" : ""}`} />
             Làm mới
           </Button>
         ) : null}
@@ -138,19 +199,32 @@ export function AdminSettings() {
 
       {activeTab === "payos" ? (
         <PayOSSettings
-          settings={settings}
-          isLoading={isLoading}
+          settings={paymentSettings}
+          isLoading={isPaymentLoading}
           copyValue={copyValue}
         />
-      ) : (
+      ) : null}
+
+      {activeTab === "shipping" ? (
         <ShippingSettings
           shippingForm={shippingForm}
           isLoading={isShippingLoading}
+          isSaving={isSavingShipping}
           onChange={handleShippingChange}
           onSave={handleSaveShipping}
           onReset={handleResetShipping}
         />
-      )}
+      ) : null}
+
+      {activeTab === "reviews" ? (
+        <ReviewSettingsPanel
+          reviewForm={reviewForm}
+          isLoading={isReviewLoading}
+          isSaving={isSavingReview}
+          onChange={setReviewForm}
+          onSave={handleSaveReviewSettings}
+        />
+      ) : null}
     </main>
   );
 }
@@ -192,7 +266,7 @@ function PayOSSettings({ settings, isLoading, copyValue }) {
                 ok={Boolean(settings?.enabled)}
               />
               <StatusItem
-                label="Mock mode"
+                label="Chế độ thử nghiệm"
                 value={settings?.mockMode ? "Đang bật" : "Đã tắt"}
                 ok={!settings?.mockMode}
               />
@@ -233,7 +307,7 @@ function PayOSSettings({ settings, isLoading, copyValue }) {
   );
 }
 
-function ShippingSettings({ shippingForm, isLoading, onChange, onSave, onReset }) {
+function ShippingSettings({ shippingForm, isLoading, isSaving, onChange, onSave, onReset }) {
   return (
     <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
       <div className="mb-6 flex items-start justify-between gap-4">
@@ -246,7 +320,7 @@ function ShippingSettings({ shippingForm, isLoading, onChange, onSave, onReset }
             Phí ship được tính theo miền của tỉnh/thành phố khách chọn khi đặt hàng.
           </p>
         </div>
-        <Button variant="outline" onClick={onReset}>
+        <Button variant="outline" onClick={onReset} disabled={isSaving}>
           Khôi phục mặc định
         </Button>
       </div>
@@ -275,19 +349,106 @@ function ShippingSettings({ shippingForm, isLoading, onChange, onSave, onReset }
       </div>
 
       <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
-        Cấu hình này được lưu ở backend và được dùng lại khi backend tạo đơn, nên frontend không
-        thể tự sửa phí ship bằng DevTools.
+        Cấu hình này được lưu ở backend và được dùng lại khi backend tạo đơn, nên frontend
+        không thể tự sửa phí ship bằng DevTools.
       </div>
 
       <div className="mt-6 flex justify-end">
         <Button
           onClick={onSave}
-          disabled={isLoading}
+          disabled={isLoading || isSaving}
           className="bg-purple-600 text-white hover:bg-purple-700"
         >
-          {isLoading ? "Đang tải..." : "Lưu phí ship"}
+          {isSaving ? "Đang lưu..." : isLoading ? "Đang tải..." : "Lưu phí ship"}
         </Button>
       </div>
+    </section>
+  );
+}
+
+function ReviewSettingsPanel({ reviewForm, isLoading, isSaving, onChange, onSave }) {
+  return (
+    <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <h2 className="flex items-center gap-2 text-lg font-bold text-gray-900">
+            <MessageSquareMore className="h-5 w-5 text-purple-600" />
+            Cài đặt bài đánh giá
+          </h2>
+          <p className="mt-1 text-sm text-gray-600">
+            Bật hoặc tắt bước duyệt trước khi bài đánh giá hiển thị công khai cho khách xem.
+          </p>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-sm text-gray-500">
+          Đang tải cài đặt bài đánh giá...
+        </div>
+      ) : (
+        <>
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-5">
+            <div className="flex items-start gap-4">
+              <Checkbox
+                id="review-approval-enabled"
+                checked={reviewForm.reviewApprovalEnabled}
+                onCheckedChange={(checked) =>
+                  onChange({
+                    reviewApprovalEnabled: checked === true,
+                  })
+                }
+                className="mt-1 h-5 w-5"
+              />
+              <div className="space-y-2">
+                <Label
+                  htmlFor="review-approval-enabled"
+                  className="text-base font-semibold text-gray-900"
+                >
+                  Yêu cầu quản trị viên duyệt bài đánh giá
+                </Label>
+                <p className="text-sm leading-6 text-gray-600">
+                  Khi bật, bài đánh giá mới sẽ vào trạng thái chờ duyệt. Khi tắt, bài đánh giá
+                  hợp lệ sẽ tự hiển thị ngay sau khi khách gửi.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div
+            className={`mt-5 rounded-xl border p-4 text-sm ${
+              reviewForm.reviewApprovalEnabled
+                ? "border-amber-200 bg-amber-50 text-amber-800"
+                : "border-green-200 bg-green-50 text-green-800"
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
+              <div>
+                <p className="font-semibold">
+                  {reviewForm.reviewApprovalEnabled
+                    ? "Trạng thái hiện tại: cần duyệt"
+                    : "Trạng thái hiện tại: tự động hiển thị"}
+                </p>
+                <p className="mt-1">
+                  {reviewForm.reviewApprovalEnabled
+                    ? "Phù hợp khi mình muốn kiểm soát nội dung trước khi hiển thị trên sản phẩm."
+                    : "Phù hợp khi mình muốn giảm thao tác vận hành và cho phép khách thấy đánh giá ngay."}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-6 flex justify-end">
+            <Button
+              onClick={onSave}
+              disabled={isSaving}
+              className="bg-purple-600 text-white hover:bg-purple-700"
+            >
+              {isSaving ? "Đang lưu..." : "Lưu cài đặt đánh giá"}
+            </Button>
+          </div>
+        </>
+      )}
     </section>
   );
 }
@@ -321,9 +482,7 @@ function StatusItem({ label, value, ok }) {
       }`}
     >
       <p className="text-xs text-gray-500">{label}</p>
-      <p className={`mt-1 font-semibold ${ok ? "text-green-700" : "text-amber-700"}`}>
-        {value}
-      </p>
+      <p className={`mt-1 font-semibold ${ok ? "text-green-700" : "text-amber-700"}`}>{value}</p>
     </div>
   );
 }

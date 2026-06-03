@@ -71,7 +71,9 @@ function normalizeProduct(product) {
     subcategory: product.subcategoryName || product.subcategory || "",
     subcategory_id: product.subcategoryId || product.subcategory_id || null,
     price: Number(product.price || 0),
-    originalPrice: product.originalPrice,
+    originalPrice: product.originalPrice == null ? null : Number(product.originalPrice),
+    discountPercent: Number(product.discountPercent || 0),
+    promotionId: product.promotionId ?? null,
     description: product.description,
     stockQuantity: product.stockQuantity,
     attributes,
@@ -94,9 +96,9 @@ function mapChatSuggestedProduct(item) {
     brand: item.brand || "",
     category: item.category || "",
     price: Number(item.price || 0),
-    originalPrice: null,
-    discountPercent: 0,
-    promotionId: null,
+    originalPrice: item.originalPrice == null ? null : Number(item.originalPrice),
+    discountPercent: Number(item.discountPercent || 0),
+    promotionId: item.promotionId ?? null,
     inStock: true,
   };
 }
@@ -108,94 +110,6 @@ function buildSearchSession(prefix, keyword) {
     .replace(/\s+/g, "-")
     .slice(0, 80);
   return `${prefix}:${normalized || "empty"}`;
-}
-
-function normalizePromotion(promotion) {
-  return {
-    id: promotion.id,
-    discountType: promotion.discountType || promotion.discount_type,
-    discountValue: Number(promotion.discountValue ?? promotion.discount_value ?? 0),
-    startDate: promotion.startDate || promotion.start_date,
-    endDate: promotion.endDate || promotion.end_date,
-    status: promotion.status || "INACTIVE",
-    priority: Number(promotion.priority || 0),
-    targetType: promotion.targetType || promotion.target_type || "ALL",
-    targetIds: Array.isArray(promotion.targetIds || promotion.target_ids)
-      ? (promotion.targetIds || promotion.target_ids).map((id) => Number(id))
-      : [],
-  };
-}
-
-function isPromotionActive(promotion) {
-  const now = new Date();
-  const startOk = !promotion.startDate || new Date(promotion.startDate) <= now;
-  const endOk = !promotion.endDate || new Date(promotion.endDate) >= now;
-  return String(promotion.status).toUpperCase() === "ACTIVE" && startOk && endOk;
-}
-
-function promotionAppliesToProduct(promotion, product) {
-  const type = String(promotion.targetType || "ALL").toUpperCase();
-  const targetIds = promotion.targetIds || [];
-  if (type === "ALL") return true;
-  if (type === "PRODUCT") return targetIds.includes(Number(product.id));
-  if (type === "CATEGORY") return targetIds.includes(Number(product.category_id));
-  if (type === "BRAND") return targetIds.includes(Number(product.brand_id));
-  return false;
-}
-
-function computeDiscountedPrice(product, promotion) {
-  const basePrice = Number(product.price || 0);
-  if (!promotion || basePrice <= 0) return null;
-
-  let discounted = basePrice;
-  const discountType = String(promotion.discountType || "").toUpperCase();
-  const discountValue = Number(promotion.discountValue || 0);
-
-  if (discountType === "PERCENTAGE") {
-    discounted = basePrice - (basePrice * discountValue) / 100;
-  } else if (discountType === "FIXED_AMOUNT") {
-    discounted = basePrice - discountValue;
-  }
-
-  discounted = Math.max(Math.floor(discounted), 0);
-  if (discounted >= basePrice) return null;
-
-  return {
-    originalPrice: basePrice,
-    price: discounted,
-    discountPercent: Math.round(((basePrice - discounted) / basePrice) * 100),
-    promotionId: promotion.id,
-  };
-}
-
-function applyPromotionsToProducts(products, promotions) {
-  const activePromotions = promotions.filter(isPromotionActive).sort((a, b) => b.priority - a.priority);
-  if (activePromotions.length === 0) return products;
-
-  return products.map((product) => {
-    const candidates = activePromotions
-      .filter((promotion) => promotionAppliesToProduct(promotion, product))
-      .map((promotion) => computeDiscountedPrice(product, promotion))
-      .filter(Boolean);
-
-    if (!candidates.length) {
-      return {
-        ...product,
-        originalPrice: null,
-        discountPercent: 0,
-        promotionId: null,
-      };
-    }
-
-    const best = candidates.sort((a, b) => a.price - b.price)[0];
-    return {
-      ...product,
-      price: best.price,
-      originalPrice: best.originalPrice,
-      discountPercent: best.discountPercent,
-      promotionId: best.promotionId,
-    };
-  });
 }
 
 function buildProductQuery({ searchTerm, categoryId, subcategoryId, attributes = {}, page = 0, size = 20 }) {
@@ -239,7 +153,6 @@ export function useCatalog(searchTerm = "", filters = {}) {
       try {
         const query = String(searchTerm || "").trim();
         const categoryPromise = apiGet("/categories", { skipAuth: true });
-        const promotionPromise = apiGet("/promotions", { skipAuth: true });
         const facetQuery =
           selectedCategoryId && selectedCategoryId !== "all"
             ? `/products/facets?categoryId=${encodeURIComponent(selectedCategoryId)}${
@@ -267,10 +180,9 @@ export function useCatalog(searchTerm = "", filters = {}) {
               { skipAuth: true }
             );
 
-        const [categoryData, productData, promotionData, facetData] = await Promise.all([
+        const [categoryData, productData, facetData] = await Promise.all([
           categoryPromise,
           productPromise,
-          promotionPromise,
           facetPromise,
         ]);
 
@@ -288,11 +200,8 @@ export function useCatalog(searchTerm = "", filters = {}) {
               .filter((product) => product.status !== "INACTIVE")
               .map(normalizeProduct);
 
-        const promotions = toArray(promotionData).map(normalizePromotion);
-        const pricedProducts = applyPromotionsToProducts(baseProducts, promotions);
-
         setCategories(activeCategories);
-        setProducts(pricedProducts);
+        setProducts(baseProducts);
         setBrandFacets(Array.isArray(facetData?.brands) ? facetData.brands : []);
         setAttributeFacets(facetData?.attributes && typeof facetData.attributes === "object" ? facetData.attributes : {});
         if (!query) {
@@ -341,26 +250,21 @@ export function useCatalog(searchTerm = "", filters = {}) {
     setIsLoadingMore(true);
     try {
       const nextPage = page + 1;
-      const [productData, promotionData] = await Promise.all([
-        apiGet(
-          buildProductQuery({
-            searchTerm: query,
-            categoryId: selectedCategoryId,
-            subcategoryId: selectedSubcategoryId,
-            attributes: selectedAttributes,
-            page: nextPage,
-            size: 20,
-          }),
-          { skipAuth: true }
-        ),
-        apiGet("/promotions", { skipAuth: true }),
-      ]);
-      const promotions = toArray(promotionData).map(normalizePromotion);
+      const productData = await apiGet(
+        buildProductQuery({
+          searchTerm: query,
+          categoryId: selectedCategoryId,
+          subcategoryId: selectedSubcategoryId,
+          attributes: selectedAttributes,
+          page: nextPage,
+          size: 20,
+        }),
+        { skipAuth: true }
+      );
       const incoming = toArray(productData)
         .filter((product) => product.status !== "INACTIVE")
         .map(normalizeProduct);
-      const pricedIncoming = applyPromotionsToProducts(incoming, promotions);
-      setProducts((prev) => [...prev, ...pricedIncoming]);
+      setProducts((prev) => [...prev, ...incoming]);
       setPage(nextPage);
       pageRef.current = nextPage;
       const totalPages = Number(productData?.totalPages ?? nextPage + 1);
@@ -381,26 +285,21 @@ export function useCatalog(searchTerm = "", filters = {}) {
     try {
       while (hasMoreRef.current) {
         const nextPage = pageRef.current + 1;
-        const [productData, promotionData] = await Promise.all([
-          apiGet(
-            buildProductQuery({
-            searchTerm: query,
-            categoryId: selectedCategoryId,
-            subcategoryId: selectedSubcategoryId,
-            attributes: selectedAttributes,
-            page: nextPage,
-            size: 20,
-            }),
-            { skipAuth: true }
-          ),
-          apiGet("/promotions", { skipAuth: true }),
-        ]);
-        const promotions = toArray(promotionData).map(normalizePromotion);
+        const productData = await apiGet(
+          buildProductQuery({
+          searchTerm: query,
+          categoryId: selectedCategoryId,
+          subcategoryId: selectedSubcategoryId,
+          attributes: selectedAttributes,
+          page: nextPage,
+          size: 20,
+          }),
+          { skipAuth: true }
+        );
         const incoming = toArray(productData)
           .filter((product) => product.status !== "INACTIVE")
           .map(normalizeProduct);
-        const pricedIncoming = applyPromotionsToProducts(incoming, promotions);
-        setProducts((prev) => [...prev, ...pricedIncoming]);
+        setProducts((prev) => [...prev, ...incoming]);
         pageRef.current = nextPage;
         setPage(nextPage);
         const totalPages = Number(productData?.totalPages ?? nextPage + 1);
@@ -434,13 +333,8 @@ export function useCatalog(searchTerm = "", filters = {}) {
 }
 
 export async function getProductById(id) {
-  const [productData, promotionData] = await Promise.all([
-    apiGet(`/products/${id}`, { skipAuth: true }),
-    apiGet("/promotions", { skipAuth: true }),
-  ]);
-  const product = normalizeProduct(productData);
-  const promotions = toArray(promotionData).map(normalizePromotion);
-  return applyPromotionsToProducts([product], promotions)[0];
+  const productData = await apiGet(`/products/${id}`, { skipAuth: true });
+  return normalizeProduct(productData);
 }
 
 export async function getCategories() {
@@ -504,13 +398,8 @@ export async function deleteBrand(id) {
 }
 
 export async function getProducts() {
-  const [productData, promotionData] = await Promise.all([
-    apiGet("/products", { skipAuth: true }),
-    apiGet("/promotions", { skipAuth: true }),
-  ]);
-  const products = toArray(productData).map(normalizeProduct);
-  const promotions = toArray(promotionData).map(normalizePromotion);
-  return applyPromotionsToProducts(products, promotions);
+  const productData = await apiGet("/products", { skipAuth: true });
+  return toArray(productData).map(normalizeProduct);
 }
 
 export async function searchProducts(searchTerm, limit = 6) {
@@ -759,11 +648,27 @@ export async function getMyProductReview(productId) {
       createdAt: data.createdAt,
     };
   } catch (error) {
-    const message = (error?.message || "").toLowerCase();
-    if (message.includes("review not found")) {
+    const normalizedMessage = String(error?.message || "")
+      .normalize("NFD")
+      .replace(/\p{M}/gu, "")
+      .replace(/đ/gi, "d")
+      .toLowerCase();
+    if (
+      normalizedMessage.includes("review not found") ||
+      normalizedMessage.includes("khong tim thay danh gia")
+    ) {
       return null;
     }
     throw error;
+  }
+}
+
+export async function getProductReviewEligibility(productId) {
+  try {
+    const data = await apiGet(`/reviews/eligibility/products/${productId}`);
+    return Boolean(data?.canReview);
+  } catch {
+    return false;
   }
 }
 
