@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
+import { UserNotificationsProvider } from "./contexts/UserNotificationsContext";
 import { Layout } from "./components/Layout"; 
 import { ScrollToTop } from "./components/ScrollToTop";
 import { Home } from "./pages/Home";
@@ -34,38 +35,40 @@ function App() {
     <BrowserRouter>
       <ScrollToTop />
       <AuthProvider>
-        <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          <Route path="/verify-email" element={<VerifyEmail />} />
-          <Route path="/admin/login" element={<AdminLogin />} />
-          <Route element={<Layout />}>
-            <Route path="/" element={<Home />} />
-            <Route path="/product/:id" element={<ProductDetail />} />
-            <Route path="/cart" element={<ShoppingCart />} />
-            <Route path="/profile" element={<Profile />} />
-            <Route path = "/orders" element={<Orders />} />
-            <Route path = "/orders/:id" element={<OrderDetail />} />
-            <Route path="/search" element={<SearchResults />} />
-          </Route>
-          <Route element={<AdminRoute />}>
-            <Route path="/admin" element={<AdminLayout />}>
-              <Route index element={<AdminDashboard />} />
-              <Route path="dashboard" element={<AdminDashboard />} />
-              <Route path="reports" element={<AdminReports />} />
-              <Route path="orders" element={<AdminOrders />} />
-              <Route path="categories" element={<AdminCategories />} />
-              <Route path="brands" element={<AdminBrands />} />
-              <Route path="coupons" element={<AdminCoupons />} />
-              <Route path="products" element={<AdminProducts />} />
-              <Route path="users" element={<AdminUsers />} />
-              <Route path="promotions" element={<AdminPromotions />} />
-              <Route path="reviews" element={<AdminReviews />} />
-              <Route path="settings" element={<AdminSettings />} />
+        <UserNotificationsProvider>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/verify-email" element={<VerifyEmail />} />
+            <Route path="/admin/login" element={<AdminLogin />} />
+            <Route element={<Layout />}>
+              <Route path="/" element={<Home />} />
+              <Route path="/product/:id" element={<ProductDetail />} />
+              <Route path="/cart" element={<ShoppingCart />} />
+              <Route path="/profile" element={<Profile />} />
+              <Route path = "/orders" element={<Orders />} />
+              <Route path = "/orders/:id" element={<OrderDetail />} />
+              <Route path="/search" element={<SearchResults />} />
             </Route>
-          </Route>
-        </Routes>
+            <Route element={<AdminRoute />}>
+              <Route path="/admin" element={<AdminLayout />}>
+                <Route index element={<AdminDashboard />} />
+                <Route path="dashboard" element={<AdminDashboard />} />
+                <Route path="reports" element={<AdminReports />} />
+                <Route path="orders" element={<AdminOrders />} />
+                <Route path="categories" element={<AdminCategories />} />
+                <Route path="brands" element={<AdminBrands />} />
+                <Route path="coupons" element={<AdminCoupons />} />
+                <Route path="products" element={<AdminProducts />} />
+                <Route path="users" element={<AdminUsers />} />
+                <Route path="promotions" element={<AdminPromotions />} />
+                <Route path="reviews" element={<AdminReviews />} />
+                <Route path="settings" element={<AdminSettings />} />
+              </Route>
+            </Route>
+          </Routes>
+        </UserNotificationsProvider>
         
         <Toaster
           position="top-right"

@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import {
+  Bell,
   ShoppingCart,
   User,
   Sparkles,
@@ -13,15 +14,18 @@ import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import { LoginPromptModal } from "./LoginPromptModal";
 import { useAuth } from "../contexts/AuthContext";
+import { useUserNotifications } from "../contexts/UserNotificationsContext";
 import logoImage from "../image/Container.png";
 import { CART_CHANGED_EVENT, getCartItemCount } from "../services/cartStorage";
 import { searchProducts } from "../hooks/useCatalog";
 
 export function Header() {
   const { user, isLoggedIn, logout } = useAuth();
+  const { notifications, unreadCount, markAllAsRead } = useUserNotifications();
   const navigate = useNavigate();
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [cartItemCount, setCartItemCount] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [suggestions, setSuggestions] = useState([]);
@@ -111,6 +115,16 @@ export function Header() {
     navigate(`/product/${productId}`);
   };
 
+  const toggleNotifications = () => {
+    setShowNotifications((prev) => {
+      const next = !prev;
+      if (next) {
+        markAllAsRead();
+      }
+      return next;
+    });
+  };
+
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/80">
       <div className="user-container py-4">
@@ -195,72 +209,140 @@ export function Header() {
 
           <div className="flex flex-shrink-0 items-center gap-2">
             {isLoggedIn ? (
-              <div className="relative">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="relative h-10 w-10 rounded-full hover:bg-gray-100"
-                  onClick={() => setShowUserMenu(!showUserMenu)}
-                  onBlur={() => setTimeout(() => setShowUserMenu(false), 200)}
-                >
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-purple-600 to-blue-600 shadow-sm">
-                    <User className="h-5 w-5 text-white" />
-                  </div>
-                </Button>
+              <>
+                {user?.role !== "admin" ? (
+                  <div className="relative">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="relative h-10 w-10 rounded-full hover:bg-gray-100"
+                      onClick={toggleNotifications}
+                      onBlur={() => setTimeout(() => setShowNotifications(false), 200)}
+                    >
+                      <Bell className="h-5 w-5 text-gray-700" />
+                      {unreadCount > 0 ? (
+                        <>
+                          <span className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full border-2 border-white bg-red-500"></span>
+                          <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                            {unreadCount > 9 ? "9+" : unreadCount}
+                          </span>
+                        </>
+                      ) : null}
+                    </Button>
 
-                {showUserMenu ? (
-                  <div className="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-xl">
-                    <div className="border-b border-gray-100 bg-gradient-to-br from-purple-50 to-blue-50 px-4 py-4">
-                      <p className="text-sm font-bold text-gray-900">{user?.name}</p>
-                      <p className="mt-0.5 truncate text-xs text-gray-600">{user?.email}</p>
-                      <span className="mt-2 inline-block rounded-full bg-purple-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-purple-700">
-                        {user?.role === "admin" ? "Quản trị viên" : "Khách hàng"}
-                      </span>
-                    </div>
+                    {showNotifications ? (
+                      <div className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-xl">
+                        <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+                          <div>
+                            <p className="text-sm font-semibold text-gray-900">Thông báo</p>
+                            <p className="text-xs text-gray-500">Cập nhật đơn hàng và hoàn tiền của bạn</p>
+                          </div>
+                          {unreadCount > 0 ? (
+                            <span className="rounded-full bg-red-50 px-2 py-1 text-xs font-semibold text-red-600">
+                              {unreadCount} mới
+                            </span>
+                          ) : null}
+                        </div>
 
-                    <div className="py-2">
-                      {user?.role !== "admin" ? (
-                        <Link
-                          to="/profile"
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 transition-colors hover:bg-gray-50"
-                        >
-                          <UserCircle className="h-4 w-4 text-gray-500" />
-                          Quản lý hồ sơ
-                        </Link>
-                      ) : null}
-                      {user?.role === "admin" ? (
-                        <Link
-                          to="/admin/dashboard"
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 transition-colors hover:bg-gray-50"
-                        >
-                          <Settings className="h-4 w-4 text-gray-500" />
-                          Trang quản trị
-                        </Link>
-                      ) : null}
-                      {user?.role !== "admin" ? (
-                        <Link
-                          to="/orders"
-                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 transition-colors hover:bg-gray-50"
-                        >
-                          <Package className="h-4 w-4 text-gray-500" />
-                          Đơn hàng của tôi
-                        </Link>
-                      ) : null}
-                      <div className="my-1 h-px bg-gray-100" />
-                      <button
-                        onClick={() => {
-                          logout();
-                          setShowUserMenu(false);
-                        }}
-                        className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-red-600 transition-colors hover:bg-red-50"
-                      >
-                        <LogOut className="h-4 w-4" />
-                        Đăng xuất
-                      </button>
-                    </div>
+                        <div className="max-h-96 overflow-y-auto">
+                          {notifications.length > 0 ? (
+                            notifications.map((item) => (
+                              <Link
+                                key={item.id}
+                                to={item.link || "/orders"}
+                                onClick={() => setShowNotifications(false)}
+                                className="block border-b border-gray-100 px-4 py-3 transition-colors hover:bg-gray-50"
+                              >
+                                <div className="flex items-start justify-between gap-3">
+                                  <div className="min-w-0">
+                                    <p className="text-sm font-medium text-gray-900">{item.title}</p>
+                                    <p className="mt-1 text-sm text-gray-600">{item.message}</p>
+                                    <p className="mt-1 text-xs text-gray-400">
+                                      {new Date(item.createdAt).toLocaleString("vi-VN")}
+                                    </p>
+                                  </div>
+                                  {!item.readAt ? <span className="mt-1 h-2.5 w-2.5 rounded-full bg-red-500"></span> : null}
+                                </div>
+                              </Link>
+                            ))
+                          ) : (
+                            <div className="px-4 py-8 text-center text-sm text-gray-500">
+                              Chưa có thông báo mới.
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 ) : null}
-              </div>
+
+                <div className="relative">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="relative h-10 w-10 rounded-full hover:bg-gray-100"
+                    onClick={() => setShowUserMenu(!showUserMenu)}
+                    onBlur={() => setTimeout(() => setShowUserMenu(false), 200)}
+                  >
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-purple-600 to-blue-600 shadow-sm">
+                      <User className="h-5 w-5 text-white" />
+                    </div>
+                  </Button>
+
+                  {showUserMenu ? (
+                    <div className="absolute right-0 top-full z-50 mt-2 w-64 overflow-hidden rounded-xl border border-gray-100 bg-white shadow-xl">
+                      <div className="border-b border-gray-100 bg-gradient-to-br from-purple-50 to-blue-50 px-4 py-4">
+                        <p className="text-sm font-bold text-gray-900">{user?.name}</p>
+                        <p className="mt-0.5 truncate text-xs text-gray-600">{user?.email}</p>
+                        <span className="mt-2 inline-block rounded-full bg-purple-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-purple-700">
+                          {user?.role === "admin" ? "Quản trị viên" : "Khách hàng"}
+                        </span>
+                      </div>
+
+                      <div className="py-2">
+                        {user?.role !== "admin" ? (
+                          <Link
+                            to="/profile"
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 transition-colors hover:bg-gray-50"
+                          >
+                            <UserCircle className="h-4 w-4 text-gray-500" />
+                            Quản lý hồ sơ
+                          </Link>
+                        ) : null}
+                        {user?.role === "admin" ? (
+                          <Link
+                            to="/admin/dashboard"
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 transition-colors hover:bg-gray-50"
+                          >
+                            <Settings className="h-4 w-4 text-gray-500" />
+                            Trang quản trị
+                          </Link>
+                        ) : null}
+                        {user?.role !== "admin" ? (
+                          <Link
+                            to="/orders"
+                            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 transition-colors hover:bg-gray-50"
+                          >
+                            <Package className="h-4 w-4 text-gray-500" />
+                            Đơn hàng của tôi
+                          </Link>
+                        ) : null}
+                        <div className="my-1 h-px bg-gray-100" />
+                        <button
+                          onClick={() => {
+                            logout();
+                            setShowUserMenu(false);
+                          }}
+                          className="flex w-full items-center gap-3 px-4 py-2.5 text-sm text-red-600 transition-colors hover:bg-red-50"
+                        >
+                          <LogOut className="h-4 w-4" />
+                          Đăng xuất
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              </>
             ) : (
               <Link to="/login">
                 <Button className="hidden h-10 rounded-full bg-gradient-to-r from-purple-600 to-blue-600 px-5 font-medium text-white shadow-md shadow-purple-500/20 transition-all hover:from-purple-700 hover:to-blue-700 md:flex">
