@@ -34,6 +34,12 @@ function buildCheckoutSnapshot(checkoutData, user, voucherCode = "") {
   };
 }
 
+function isPayOSCancelledStatus(status) {
+  return ["CANCELLED", "CANCELED", "FAILED", "EXPIRED", "ERROR"].includes(
+    String(status || "").toUpperCase()
+  );
+}
+
 export function ProductInfo({
   id,
   image,
@@ -116,8 +122,14 @@ export function ProductInfo({
       if (!active) return;
       setIsCheckingPayment(true);
       try {
+        let payOSResult = null;
         if (momoPayment) {
-          await syncPayOSPaymentStatus(momoPayment);
+          payOSResult = await syncPayOSPaymentStatus(momoPayment);
+        }
+        if (isPayOSCancelledStatus(payOSResult?.paymentStatus)) {
+          setIsMomoPaymentModalOpen(false);
+          toast.info("Bạn đã hủy hoặc chưa hoàn tất thanh toán");
+          return;
         }
         const latestOrder = await getOrderById(createdOrder.id);
         if (!active) return;

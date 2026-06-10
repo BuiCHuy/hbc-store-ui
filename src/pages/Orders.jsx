@@ -78,7 +78,10 @@ export function Orders() {
         const paramsObject = Object.fromEntries(searchParams.entries());
         const result = await confirmPayOSReturn(paramsObject);
         if (active) {
-          if (result?.code === "00" && /thanh toán|payment confirmed/i.test(result?.message || "")) {
+          const paymentStatus = String(result?.paymentStatus || "").toUpperCase();
+          const paid = result?.paid === true || result?.paid === "true" || paymentStatus === "PAID";
+
+          if (paid) {
             toast.success("Thanh toán PayOS thành công");
           } else {
             toast.info("Bạn đã hủy hoặc chưa hoàn tất thanh toán");
@@ -238,9 +241,7 @@ export function Orders() {
                       <h3 className="text-lg font-bold text-gray-900">{order.code}</h3>
                       <div className="flex items-center gap-2 text-sm text-gray-500">
                         <Calendar className="h-4 w-4" />
-                        <span>
-                          Đặt ngày {new Date(order.order_date).toLocaleDateString("vi-VN")}
-                        </span>
+                        <span>Đặt ngày {new Date(order.order_date).toLocaleDateString("vi-VN")}</span>
                       </div>
                     </div>
                   </div>
