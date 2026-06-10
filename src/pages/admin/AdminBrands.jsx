@@ -3,6 +3,7 @@ import { Building2, Edit, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
+import { getErrorMessageVi } from "../../lib/api";
 import {
   Select,
   SelectContent,
@@ -108,7 +109,9 @@ export function AdminBrands() {
       toast.success("Thêm hãng thành công");
       setIsAddBrandModalOpen(false);
     } catch (error) {
-      toast.error("Không thể thêm hãng", { description: error.message });
+      toast.error("Không thể thêm hãng", {
+        description: getErrorMessageVi(error, "Không thể thêm hãng mới."),
+      });
     }
   };
 
@@ -122,7 +125,9 @@ export function AdminBrands() {
       toast.success("Cập nhật hãng thành công");
       setEditingBrand(null);
     } catch (error) {
-      toast.error("Không thể cập nhật hãng", { description: error.message });
+      toast.error("Không thể cập nhật hãng", {
+        description: getErrorMessageVi(error, "Không thể cập nhật thông tin hãng."),
+      });
     }
   };
 
@@ -134,7 +139,9 @@ export function AdminBrands() {
       );
       toast.success("Đã ẩn hãng");
     } catch (error) {
-      toast.error("Không thể xóa hãng", { description: error.message });
+      toast.error("Không thể xóa hãng", {
+        description: getErrorMessageVi(error, "Không thể xóa hãng."),
+      });
     }
   };
 

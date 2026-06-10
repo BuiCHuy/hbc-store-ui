@@ -18,6 +18,7 @@ import { GuestCheckoutModal } from "../components/GuestCheckoutModal";
 import { OrderConfirmationModal } from "../components/OrderConfirmationModal";
 import { OrderSuccessModal } from "../components/OrderSuccessModal";
 import { PaymentQrModal } from "../components/PaymentQrModal";
+import { getErrorMessageVi } from "../lib/api";
 import { parseShippingAddress } from "../lib/shipping";
 
 function buildCheckoutSnapshot(checkoutData, user, voucherCode = "") {
@@ -33,6 +34,14 @@ function buildCheckoutSnapshot(checkoutData, user, voucherCode = "") {
     voucherCode: String(checkoutData?.voucherCode || voucherCode || "").trim().toUpperCase(),
     paymentMethod: checkoutData?.paymentMethod || "COD",
   };
+}
+
+function hasEnoughInfoForCartQuote(snapshot) {
+  return Boolean(
+    snapshot?.fullName?.trim() &&
+      snapshot?.phoneNumber?.trim() &&
+      snapshot?.address?.trim()
+  );
 }
 
 export function ShoppingCart() {
@@ -177,9 +186,22 @@ export function ShoppingCart() {
         return;
       }
 
+      const snapshot = buildCheckoutSnapshot(checkoutData, user, promoCode);
+      const canPreviewQuote = hasEnoughInfoForCartQuote(snapshot);
+
+      if (!canPreviewQuote) {
+        if (!mounted) return;
+        setQuotedItems([]);
+        setShippingFee(0);
+        setDiscount(0);
+        setAppliedVoucher("");
+        setAppliedCouponId(null);
+        return;
+      }
+
       try {
         const quote = await quoteOrder({
-          checkoutData: buildCheckoutSnapshot(checkoutData, user, promoCode),
+          checkoutData: snapshot,
           cartItems: selectedCartItems,
           couponCode: checkoutData?.voucherCode || promoCode,
         });
@@ -203,7 +225,9 @@ export function ShoppingCart() {
         setAppliedVoucher("");
         setAppliedCouponId(null);
         if (checkoutData?.voucherCode || promoCode) {
-          toast.error("Không thể áp mã giảm giá", { description: error.message });
+          toast.error("Không thể áp mã giảm giá", {
+            description: getErrorMessageVi(error, "Mã giảm giá không hợp lệ hoặc không thể sử dụng."),
+          });
         }
       }
     }
@@ -257,7 +281,9 @@ export function ShoppingCart() {
       setCartItems(getCartItems());
     } catch (error) {
       setCartItems(getCartItems());
-      toast.error("Không thể cập nhật số lượng", { description: error.message });
+      toast.error("Không thể cập nhật số lượng", {
+        description: getErrorMessageVi(error, "Không thể cập nhật số lượng sản phẩm trong giỏ hàng."),
+      });
     }
   };
 
@@ -270,7 +296,9 @@ export function ShoppingCart() {
       toast.success("Đã xóa khỏi giỏ hàng");
     } catch (error) {
       setCartItems(getCartItems());
-      toast.error("Không thể xóa sản phẩm", { description: error.message });
+      toast.error("Không thể xóa sản phẩm", {
+        description: getErrorMessageVi(error, "Không thể xóa sản phẩm khỏi giỏ hàng."),
+      });
     }
   };
 
@@ -278,7 +306,21 @@ export function ShoppingCart() {
     event.preventDefault();
     const normalizedCode = String(promoCode || "").trim().toUpperCase();
     setPromoCode(normalizedCode);
-    toast.success(normalizedCode ? "Đang kiểm tra mã giảm giá" : "Đã bỏ mã giảm giá");
+
+    if (!normalizedCode) {
+      toast.success("Đã bỏ mã giảm giá");
+      return;
+    }
+
+    const snapshot = buildCheckoutSnapshot(checkoutData, user, normalizedCode);
+    if (!hasEnoughInfoForCartQuote(snapshot)) {
+      toast.info("Đã lưu mã giảm giá", {
+        description: "Mã sẽ được kiểm tra khi bạn nhập thông tin giao hàng ở bước thanh toán.",
+      });
+      return;
+    }
+
+    toast.success("Đang kiểm tra mã giảm giá");
   };
 
   const handleCheckout = () => {
@@ -327,7 +369,9 @@ export function ShoppingCart() {
       setIsCheckoutModalOpen(false);
       setIsOrderConfirmationModalOpen(true);
     } catch (error) {
-      toast.error("Không thể tiếp tục đơn hàng", { description: error.message });
+      toast.error("Không thể tiếp tục đơn hàng", {
+        description: getErrorMessageVi(error, "Không thể kiểm tra thông tin đơn hàng."),
+      });
       throw error;
     }
   };
@@ -360,7 +404,7 @@ export function ShoppingCart() {
           setMomoPayment(null);
           setIsMomoPaymentModalOpen(true);
           toast.warning("Đã tạo đơn hàng. Chưa tạo được link PayOS, vui lòng thử lại trong trang đơn hàng.", {
-            description: paymentError.message,
+            description: getErrorMessageVi(paymentError, "Chưa thể tạo liên kết thanh toán PayOS."),
           });
         }
         return;
@@ -375,7 +419,9 @@ export function ShoppingCart() {
       setPendingCheckoutItemIds([]);
       setIsOrderSuccessModalOpen(true);
     } catch (error) {
-      toast.error("Không thể tạo đơn hàng", { description: error.message });
+      toast.error("Không thể tạo đơn hàng", {
+        description: getErrorMessageVi(error, "Không thể tạo đơn hàng lúc này."),
+      });
     } finally {
       setIsSubmittingOrder(false);
     }

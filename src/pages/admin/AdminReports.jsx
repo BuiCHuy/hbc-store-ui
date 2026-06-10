@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { DollarSign, Undo2, Wallet, Package, ShoppingCart } from "lucide-react";
 import { Button } from "../../components/ui/button";
+import { getErrorMessageVi } from "../../lib/api";
 import { getAdminOrders, getAdminRefundRequests } from "../../services/adminApi";
 
 const ranges = [
@@ -52,7 +53,7 @@ export function AdminReports() {
         setRefunds(refundData);
       } catch (error) {
         toast.error("Không thể tải dữ liệu báo cáo", {
-          description: error.message,
+          description: getErrorMessageVi(error, "Không thể tải dữ liệu báo cáo."),
         });
       } finally {
         if (mounted) setIsLoading(false);

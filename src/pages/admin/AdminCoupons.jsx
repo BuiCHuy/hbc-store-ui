@@ -8,6 +8,7 @@ import { Input } from "../../components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 import { CouponsTable } from "../../components/admin/CouponsTable";
 import { AddCouponModal } from "../../components/admin/AddCouponModal";
+import { getErrorMessageVi } from "../../lib/api";
 import { createCoupon, deleteCoupon, getCoupons, updateCoupon } from "../../services/adminApi";
 
 function getCouponDisplayStatus(coupon) {
@@ -42,7 +43,7 @@ export function AdminCoupons() {
       } catch (error) {
         console.error("Lỗi tải mã giảm giá:", error);
         toast.error("Không tải được danh sách mã giảm giá", {
-          description: error.message,
+          description: getErrorMessageVi(error, "Không thể tải danh sách mã giảm giá."),
         });
         if (isMounted) setCoupons([]);
       } finally {
@@ -72,7 +73,7 @@ export function AdminCoupons() {
       setIsAddCouponModalOpen(false);
     } catch (error) {
       toast.error("Không thể tạo mã giảm giá", {
-        description: error.message,
+        description: getErrorMessageVi(error, "Không thể tạo mã giảm giá."),
       });
     }
   };
@@ -88,7 +89,7 @@ export function AdminCoupons() {
       setEditingCoupon(null);
     } catch (error) {
       toast.error("Không thể cập nhật mã giảm giá", {
-        description: error.message,
+        description: getErrorMessageVi(error, "Không thể cập nhật mã giảm giá."),
       });
     }
   };
@@ -104,7 +105,7 @@ export function AdminCoupons() {
       toast.success("Đã ẩn mã giảm giá");
     } catch (error) {
       toast.error("Không thể ẩn mã giảm giá", {
-        description: error.message,
+        description: getErrorMessageVi(error, "Không thể ẩn mã giảm giá."),
       });
     }
   };

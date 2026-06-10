@@ -29,7 +29,7 @@ function buildProfileForm(user) {
 }
 
 export function Profile() {
-  const { isLoggedIn, user, updateUserProfile } = useAuth();
+  const { isLoggedIn, isAuthReady, user, updateUserProfile } = useAuth();
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [orderCount, setOrderCount] = useState(0);
@@ -50,6 +50,10 @@ export function Profile() {
   const shouldShowDistrict = isDistrictEnabledProvince(formData.province);
 
   useEffect(() => {
+    if (!isAuthReady) {
+      return;
+    }
+
     if (!isLoggedIn) {
       navigate("/login");
       return;
@@ -57,7 +61,7 @@ export function Profile() {
     if (user) {
       setFormData(buildProfileForm(user));
     }
-  }, [isLoggedIn, navigate, user]);
+  }, [isAuthReady, isLoggedIn, navigate, user]);
 
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -167,7 +171,7 @@ export function Profile() {
     setIsEditing(false);
   };
 
-  if (!isLoggedIn || !user) return null;
+  if (!isAuthReady || !isLoggedIn || !user) return null;
 
   const displayAddress = buildShippingAddress(
     formData.detailAddress,

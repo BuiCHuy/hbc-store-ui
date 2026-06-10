@@ -7,6 +7,7 @@ import { Textarea } from "../../components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../../components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "../../components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../components/ui/table";
+import { getErrorMessageVi } from "../../lib/api";
 import {
   getAdminOrders,
   getAdminRefundRequests,
@@ -109,7 +110,9 @@ export function AdminOrders() {
         setOrders(ordersData);
         setRefunds(refundsData);
       } catch (error) {
-        toast.error("Không thể tải dữ liệu đơn hàng", { description: error.message });
+        toast.error("Không thể tải dữ liệu đơn hàng", {
+          description: getErrorMessageVi(error, "Không thể tải dữ liệu đơn hàng."),
+        });
       } finally {
         if (isMounted) setIsLoading(false);
       }
@@ -210,7 +213,9 @@ export function AdminOrders() {
       setSelectedStatus(updated.status);
       toast.success("Cập nhật trạng thái thành công");
     } catch (error) {
-      toast.error("Không thể cập nhật trạng thái", { description: error.message });
+      toast.error("Không thể cập nhật trạng thái", {
+        description: getErrorMessageVi(error, "Không thể cập nhật trạng thái đơn hàng."),
+      });
     } finally {
       setIsUpdatingStatus(false);
     }
@@ -229,7 +234,9 @@ export function AdminOrders() {
         if (current) setSelectedOrder(current);
       }
     } catch (error) {
-      toast.error("Không thể cập nhật yêu cầu hoàn tiền", { description: error.message });
+      toast.error("Không thể cập nhật yêu cầu hoàn tiền", {
+        description: getErrorMessageVi(error, "Không thể cập nhật yêu cầu hoàn tiền."),
+      });
     } finally {
       setIsUpdatingRefund(false);
     }

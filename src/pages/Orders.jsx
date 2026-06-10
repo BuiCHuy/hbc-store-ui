@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
 import { Input } from "../components/ui/input";
 import { Button } from "../components/ui/button";
+import { getErrorMessageVi } from "../lib/api";
 import { confirmPayOSReturn, getMyOrders } from "../services/adminApi";
 
 const statusConfig = {
@@ -87,7 +88,7 @@ export function Orders() {
       } catch (error) {
         if (active) {
           toast.error("Không thể xác nhận kết quả PayOS", {
-            description: error.message,
+            description: getErrorMessageVi(error, "Không thể xác nhận kết quả thanh toán PayOS."),
           });
           navigate("/orders", { replace: true });
         }
@@ -111,7 +112,7 @@ export function Orders() {
         if (isMounted) setOrders(data);
       } catch (error) {
         toast.error("Không thể tải đơn hàng", {
-          description: error.message,
+          description: getErrorMessageVi(error, "Không thể tải danh sách đơn hàng."),
         });
       } finally {
         if (isMounted) setIsLoading(false);

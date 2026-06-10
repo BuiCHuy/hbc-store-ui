@@ -3,6 +3,7 @@ import { Edit, Layers, Package, Plus, Search, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
+import { getErrorMessageVi } from "../../lib/api";
 import {
   Select,
   SelectContent,
@@ -117,7 +118,9 @@ export function AdminCategories() {
       toast.success("Thêm danh mục thành công");
       setIsAddCategoryModalOpen(false);
     } catch (error) {
-      toast.error("Không thể thêm danh mục", { description: error.message });
+      toast.error("Không thể thêm danh mục", {
+        description: getErrorMessageVi(error, "Không thể thêm danh mục mới."),
+      });
     }
   };
 
@@ -131,7 +134,9 @@ export function AdminCategories() {
       );
       toast.success("Đã ẩn danh mục");
     } catch (error) {
-      toast.error("Không thể xóa danh mục", { description: error.message });
+      toast.error("Không thể xóa danh mục", {
+        description: getErrorMessageVi(error, "Không thể xóa danh mục."),
+      });
     }
   };
 
@@ -153,7 +158,9 @@ export function AdminCategories() {
       toast.success("Cập nhật danh mục thành công");
       setEditingCategory(null);
     } catch (error) {
-      toast.error("Không thể cập nhật danh mục", { description: error.message });
+      toast.error("Không thể cập nhật danh mục", {
+        description: getErrorMessageVi(error, "Không thể cập nhật danh mục."),
+      });
     }
   };
 

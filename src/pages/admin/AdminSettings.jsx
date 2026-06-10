@@ -13,6 +13,7 @@ import { Button } from "../../components/ui/button";
 import { Checkbox } from "../../components/ui/checkbox";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
+import { getErrorMessageVi } from "../../lib/api";
 import {
   getPayOSSettings,
   getReviewSettings,
@@ -57,7 +58,7 @@ export function AdminSettings() {
       setPaymentSettings(data);
     } catch (error) {
       toast.error("Không thể tải cài đặt thanh toán", {
-        description: error.message,
+        description: getErrorMessageVi(error, "Không thể tải cài đặt thanh toán."),
       });
     } finally {
       setIsPaymentLoading(false);
@@ -71,7 +72,7 @@ export function AdminSettings() {
       setShippingForm(data);
     } catch (error) {
       toast.error("Không thể tải cài đặt phí ship", {
-        description: error.message,
+        description: getErrorMessageVi(error, "Không thể tải cài đặt phí vận chuyển."),
       });
     } finally {
       setIsShippingLoading(false);
@@ -85,7 +86,7 @@ export function AdminSettings() {
       setReviewForm(data);
     } catch (error) {
       toast.error("Không thể tải cài đặt bài đánh giá", {
-        description: error.message,
+        description: getErrorMessageVi(error, "Không thể tải cài đặt bài đánh giá."),
       });
     } finally {
       setIsReviewLoading(false);
@@ -119,7 +120,7 @@ export function AdminSettings() {
       toast.success("Đã lưu cài đặt phí ship");
     } catch (error) {
       toast.error("Không thể lưu cài đặt phí ship", {
-        description: error.message,
+        description: getErrorMessageVi(error, "Không thể lưu cài đặt phí vận chuyển."),
       });
     } finally {
       setIsSavingShipping(false);
@@ -141,7 +142,7 @@ export function AdminSettings() {
       toast.success("Đã khôi phục phí ship mặc định");
     } catch (error) {
       toast.error("Không thể khôi phục phí ship", {
-        description: error.message,
+        description: getErrorMessageVi(error, "Không thể khôi phục phí vận chuyển."),
       });
     } finally {
       setIsSavingShipping(false);
@@ -156,7 +157,7 @@ export function AdminSettings() {
       toast.success("Đã lưu cài đặt bài đánh giá");
     } catch (error) {
       toast.error("Không thể lưu cài đặt bài đánh giá", {
-        description: error.message,
+        description: getErrorMessageVi(error, "Không thể lưu cài đặt bài đánh giá."),
       });
     } finally {
       setIsSavingReview(false);

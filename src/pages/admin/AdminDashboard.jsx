@@ -3,6 +3,7 @@ import { DollarSign, ShoppingCart, AlertTriangle, Package } from "lucide-react";
 import { toast } from "sonner";
 import { StatCard } from "../../components/admin/StatCard";
 import { OrdersTable } from "../../components/admin/OrdersTable";
+import { getErrorMessageVi } from "../../lib/api";
 import { getProducts } from "../../hooks/useCatalog";
 import { getAdminOrders } from "../../services/adminApi";
 
@@ -26,7 +27,7 @@ export function AdminDashboard() {
         setProducts([]);
         setOrders([]);
         toast.error("Không thể tải dữ liệu tổng quan", {
-          description: error.message,
+          description: getErrorMessageVi(error, "Không thể tải dữ liệu tổng quan."),
         });
       } finally {
         if (isMounted) setIsLoading(false);

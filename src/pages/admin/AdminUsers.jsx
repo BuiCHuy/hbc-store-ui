@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Download, Mail, Phone, Search, Shield, User } from "lucide-react";
 import { toast } from "sonner";
+import { getErrorMessageVi } from "../../lib/api";
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import {
@@ -59,7 +60,7 @@ export function AdminUsers() {
         if (isMounted) setUsers(data);
       } catch (error) {
         toast.error("Không thể tải danh sách người dùng", {
-          description: error.message,
+          description: getErrorMessageVi(error, "Không thể tải danh sách người dùng."),
         });
       } finally {
         if (isMounted) setIsLoading(false);
@@ -122,7 +123,9 @@ export function AdminUsers() {
       );
       toast.success("Đã khóa người dùng");
     } catch (error) {
-      toast.error("Không thể khóa người dùng", { description: error.message });
+      toast.error("Không thể khóa người dùng", {
+        description: getErrorMessageVi(error, "Không thể khóa người dùng."),
+      });
     }
   };
 
@@ -134,7 +137,9 @@ export function AdminUsers() {
       );
       toast.success("Đã mở khóa người dùng");
     } catch (error) {
-      toast.error("Không thể mở khóa người dùng", { description: error.message });
+      toast.error("Không thể mở khóa người dùng", {
+        description: getErrorMessageVi(error, "Không thể mở khóa người dùng."),
+      });
     }
   };
 

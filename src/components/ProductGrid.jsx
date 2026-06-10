@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { ArrowRight, Grid2x2, LayoutGrid, SlidersHorizontal } from "lucide-react";
+import { ArrowRight, Grid2x2, LayoutGrid, RefreshCw, SlidersHorizontal } from "lucide-react";
 import { ProductCard } from "./ProductCard";
 import { Button } from "./ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
@@ -43,6 +43,8 @@ export function ProductGrid({
   brandFacets = [],
   selectedBrandFilter = "all",
   onBrandFilterChange = null,
+  onResetFilters = () => {},
+  resetKey = 0,
   isLoading = false,
   isLoadingMore = false,
   hasMore = false,
@@ -58,6 +60,11 @@ export function ProductGrid({
     if (typeof onBrandFilterChange !== "function") return;
     setBrandFilter(selectedBrandFilter || "all");
   }, [selectedBrandFilter, onBrandFilterChange]);
+
+  React.useEffect(() => {
+    setSortBy("featured");
+    setBrandFilter(selectedBrandFilter || "all");
+  }, [resetKey, selectedBrandFilter]);
 
   const handleBrandFilterChange = (value) => {
     setBrandFilter(value);
@@ -197,6 +204,17 @@ export function ProductGrid({
                   <SelectItem value="rating">Đánh giá cao</SelectItem>
                 </SelectContent>
               </Select>
+
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={onResetFilters}
+                className="h-9 border-slate-300 px-3 text-xs text-slate-700"
+                title="Đặt lại bộ lọc"
+              >
+                <RefreshCw className="h-3.5 w-3.5" />
+              </Button>
 
               <div className="flex gap-1 rounded-md bg-slate-100 p-1">
                 <button

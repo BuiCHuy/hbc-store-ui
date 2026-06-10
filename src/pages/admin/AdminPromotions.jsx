@@ -14,6 +14,7 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { StatCard } from "../../components/admin/StatCard";
 import { PromotionModal } from "../../components/admin/PromotionModal";
+import { getErrorMessageVi } from "../../lib/api";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -97,7 +98,7 @@ export function AdminPromotions() {
       } catch (error) {
         console.error("Lỗi tải khuyến mại:", error);
         toast.error("Không thể tải chương trình khuyến mại", {
-          description: error.message,
+          description: getErrorMessageVi(error, "Không thể tải chương trình khuyến mại."),
         });
       } finally {
         if (isMounted) setIsLoading(false);
@@ -171,7 +172,7 @@ export function AdminPromotions() {
       setEditingPromotion(null);
     } catch (error) {
       toast.error("Không thể lưu chương trình khuyến mại", {
-        description: error.message,
+        description: getErrorMessageVi(error, "Không thể lưu chương trình khuyến mại."),
       });
     }
   };
@@ -188,7 +189,7 @@ export function AdminPromotions() {
       toast.success("Đã ẩn chương trình khuyến mại");
     } catch (error) {
       toast.error("Không thể ẩn chương trình khuyến mại", {
-        description: error.message,
+        description: getErrorMessageVi(error, "Không thể ẩn chương trình khuyến mại."),
       });
     } finally {
       setDeletingPromotion(null);

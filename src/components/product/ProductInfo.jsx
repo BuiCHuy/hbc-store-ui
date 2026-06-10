@@ -16,6 +16,7 @@ import {
   quoteOrder,
   syncPayOSPaymentStatus,
 } from "../../services/adminApi";
+import { getErrorMessageVi } from "../../lib/api";
 import { parseShippingAddress } from "../../lib/shipping";
 
 function buildCheckoutSnapshot(checkoutData, user, voucherCode = "") {
@@ -203,7 +204,9 @@ export function ProductInfo({
         setAppliedVoucher("");
         setAppliedCouponId(null);
         if (checkoutData?.voucherCode || promoCode) {
-          toast.error("Không thể áp mã giảm giá", { description: error.message });
+          toast.error("Không thể áp mã giảm giá", {
+            description: getErrorMessageVi(error, "Mã giảm giá không hợp lệ hoặc không thể sử dụng."),
+          });
         }
       }
     }
@@ -302,7 +305,7 @@ export function ProductInfo({
       setIsOrderConfirmationModalOpen(true);
     } catch (error) {
       toast.error("Không thể tiếp tục đơn hàng", {
-        description: error.message,
+        description: getErrorMessageVi(error, "Không thể kiểm tra thông tin đơn hàng."),
       });
       throw error;
     }
@@ -334,7 +337,7 @@ export function ProductInfo({
           setMomoPayment(null);
           setIsMomoPaymentModalOpen(true);
           toast.warning("Đã tạo đơn hàng. Chưa tạo được link PayOS, vui lòng thử lại trong trang đơn hàng.", {
-            description: paymentError.message,
+            description: getErrorMessageVi(paymentError, "Chưa thể tạo liên kết thanh toán PayOS."),
           });
         }
       } else {
@@ -342,7 +345,7 @@ export function ProductInfo({
       }
     } catch (error) {
       toast.error("Không thể tạo đơn hàng", {
-        description: error.message,
+        description: getErrorMessageVi(error, "Không thể tạo đơn hàng lúc này."),
       });
     } finally {
       setIsSubmittingOrder(false);
@@ -451,7 +454,9 @@ export function ProductInfo({
                 await addCartItem(buyNowItem, quantity);
                 toast.success("Đã thêm vào giỏ hàng");
               } catch (error) {
-                toast.error("Không thể thêm vào giỏ hàng", { description: error.message });
+                toast.error("Không thể thêm vào giỏ hàng", {
+                  description: getErrorMessageVi(error, "Không thể thêm sản phẩm vào giỏ hàng."),
+                });
               }
             }}
           >

@@ -8,6 +8,7 @@ import {
   uploadProductImages,
   updateSubcategory,
 } from "../../hooks/useCatalog";
+import { getErrorMessageVi } from "../../lib/api";
 import { Button } from "../ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "../ui/dialog";
 import { Input } from "../ui/input";
@@ -78,7 +79,9 @@ export function SubcategoryManagerModal({ isOpen, onClose, category }) {
       }
       resetForm();
     } catch (error) {
-      toast.error("Không thể lưu danh mục con", { description: error?.message });
+      toast.error("Không thể lưu danh mục con", {
+        description: getErrorMessageVi(error, "Không thể lưu danh mục con."),
+      });
     } finally {
       setIsSaving(false);
     }
@@ -90,7 +93,9 @@ export function SubcategoryManagerModal({ isOpen, onClose, category }) {
       setItems((prev) => prev.map((it) => (it.id === item.id ? { ...it, status: "INACTIVE" } : it)));
       toast.success("Đã ẩn danh mục con");
     } catch (error) {
-      toast.error("Không thể xóa danh mục con", { description: error?.message });
+      toast.error("Không thể xóa danh mục con", {
+        description: getErrorMessageVi(error, "Không thể xóa danh mục con."),
+      });
     }
   };
 
@@ -104,7 +109,9 @@ export function SubcategoryManagerModal({ isOpen, onClose, category }) {
       setForm((prev) => ({ ...prev, iconUrl: url }));
       toast.success("Đã tải ảnh lên");
     } catch (error) {
-      toast.error("Không thể tải ảnh lên", { description: error?.message });
+      toast.error("Không thể tải ảnh lên", {
+        description: getErrorMessageVi(error, "Không thể tải ảnh lên."),
+      });
     } finally {
       setIsUploading(false);
       event.target.value = "";

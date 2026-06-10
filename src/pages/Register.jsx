@@ -7,6 +7,7 @@ import { Label } from "../components/ui/label";
 import { Checkbox } from "../components/ui/checkbox";
 import { toast } from "sonner";
 import { useAuth } from "../contexts/AuthContext";
+import { getErrorMessageVi } from "../lib/api";
 
 export function Register() {
   const navigate = useNavigate();
@@ -99,7 +100,7 @@ export function Register() {
 
     if (!result?.success) {
       toast.error("Đăng ký thất bại!", {
-        description: result?.message || "Thông tin đăng ký không hợp lệ.",
+        description: getErrorMessageVi({ message: result?.message }, "Thông tin đăng ký không hợp lệ."),
       });
       return;
     }

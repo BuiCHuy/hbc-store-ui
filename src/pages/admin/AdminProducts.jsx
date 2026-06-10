@@ -4,6 +4,7 @@ import { toast } from "sonner";
 
 import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
+import { getErrorMessageVi } from "../../lib/api";
 import {
   Table,
   TableBody,
@@ -214,7 +215,9 @@ export function AdminProducts() {
       setIsAddProductModalOpen(false);
       return savedProduct;
     } catch (error) {
-      toast.error("Không thể thêm sản phẩm", { description: error.message });
+      toast.error("Không thể thêm sản phẩm", {
+        description: getErrorMessageVi(error, "Không thể thêm sản phẩm mới."),
+      });
       throw error;
     } finally {
       setIsSavingProduct(false);
@@ -235,7 +238,9 @@ export function AdminProducts() {
       setEditingProduct(null);
       return savedProduct;
     } catch (error) {
-      toast.error("Không thể cập nhật sản phẩm", { description: error.message });
+      toast.error("Không thể cập nhật sản phẩm", {
+        description: getErrorMessageVi(error, "Không thể cập nhật sản phẩm."),
+      });
       throw error;
     } finally {
       setIsSavingProduct(false);
@@ -252,7 +257,9 @@ export function AdminProducts() {
       );
       toast.success("Đã ẩn sản phẩm");
     } catch (error) {
-      toast.error("Không thể xóa sản phẩm", { description: error.message });
+      toast.error("Không thể xóa sản phẩm", {
+        description: getErrorMessageVi(error, "Không thể xóa sản phẩm."),
+      });
     }
   };
 

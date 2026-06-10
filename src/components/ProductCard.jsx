@@ -3,7 +3,6 @@ import { ShoppingCart, Star } from "lucide-react";
 import { Button } from "./ui/button";
 import { Link } from "react-router-dom";
 import { AddToCartModal } from "./AddToCartModal";
-import { SuccessToast } from "./SuccessToast";
 import { LoginPromptModal } from "./LoginPromptModal";
 import { useAuth } from "../contexts/AuthContext";
 import { addCartItem } from "../services/cartStorage";
@@ -23,7 +22,6 @@ export function ProductCard({
   const { isLoggedIn, isAdmin } = useAuth();
   const [showAddToCartModal, setShowAddToCartModal] = useState(false);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
-  const [showSuccessToast, setShowSuccessToast] = useState(false);
 
   const formatPrice = (value) =>
     new Intl.NumberFormat("vi-VN", {
@@ -138,13 +136,9 @@ export function ProductCard({
             }
             addCartItem({ id, image, name, brand, price }, quantity);
             setShowAddToCartModal(false);
-            setShowSuccessToast(true);
+            toast.success("Đã thêm vào giỏ hàng");
           }}
         />
-      )}
-
-      {showSuccessToast && (
-        <SuccessToast isOpen={showSuccessToast} onClose={() => setShowSuccessToast(false)} />
       )}
 
       <LoginPromptModal

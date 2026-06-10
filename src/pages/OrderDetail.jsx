@@ -18,6 +18,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { Button } from "../components/ui/button";
 import { Textarea } from "../components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../components/ui/dialog";
+import { getErrorMessageVi } from "../lib/api";
 import { PaymentQrModal } from "../components/PaymentQrModal";
 import {
   cancelMyOrder,
@@ -109,7 +110,9 @@ export function OrderDetail() {
         setOrder(orderData);
         setRefunds(refundsData.filter((item) => String(item.order_id) === String(id)));
       } catch (error) {
-        toast.error("Không thể tải chi tiết đơn hàng", { description: error.message });
+        toast.error("Không thể tải chi tiết đơn hàng", {
+          description: getErrorMessageVi(error, "Không thể tải chi tiết đơn hàng."),
+        });
         if (isMounted) setOrder(null);
       } finally {
         if (isMounted) setIsLoading(false);
@@ -270,7 +273,9 @@ export function OrderDetail() {
         description: "Đánh giá của bạn đang chờ admin duyệt.",
       });
     } catch (error) {
-      toast.error("Không thể gửi đánh giá", { description: error.message });
+      toast.error("Không thể gửi đánh giá", {
+        description: getErrorMessageVi(error, "Không thể gửi đánh giá lúc này."),
+      });
     } finally {
       setSubmittingReviewId(null);
     }
@@ -289,7 +294,9 @@ export function OrderDetail() {
       setRefundReason("");
       toast.success("Đã gửi yêu cầu hoàn tiền");
     } catch (error) {
-      toast.error("Không thể gửi yêu cầu hoàn tiền", { description: error.message });
+      toast.error("Không thể gửi yêu cầu hoàn tiền", {
+        description: getErrorMessageVi(error, "Không thể gửi yêu cầu hoàn tiền."),
+      });
     } finally {
       setIsSubmittingRefund(false);
     }
@@ -304,7 +311,9 @@ export function OrderDetail() {
       setIsCancelDialogOpen(false);
       toast.success("Đã hủy đơn hàng");
     } catch (error) {
-      toast.error("Không thể hủy đơn hàng", { description: error.message });
+      toast.error("Không thể hủy đơn hàng", {
+        description: getErrorMessageVi(error, "Không thể hủy đơn hàng này."),
+      });
     } finally {
       setIsCancellingOrder(false);
     }
@@ -326,7 +335,9 @@ export function OrderDetail() {
       const latestOrder = await getOrderById(order.id);
       setOrder(latestOrder);
     } catch (error) {
-      toast.error("Không thể tạo lại mã thanh toán", { description: error.message });
+      toast.error("Không thể tạo lại mã thanh toán", {
+        description: getErrorMessageVi(error, "Không thể tạo lại mã thanh toán."),
+      });
     } finally {
       setIsCreatingPayment(false);
     }
@@ -398,7 +409,10 @@ export function OrderDetail() {
                 {order.items.map((product) => (
                   <div key={product.id} className="border-b border-gray-100 pb-4 last:border-b-0">
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
+                      <Link
+                        to={`/product/${product.product_id}`}
+                        className="flex items-center gap-3 rounded-md transition hover:text-purple-600"
+                      >
                         {product.product_image ? (
                           <img
                             src={product.product_image}
@@ -407,10 +421,12 @@ export function OrderDetail() {
                           />
                         ) : null}
                         <div>
-                          <p className="font-semibold text-gray-900">{product.product_name}</p>
+                          <p className="font-semibold text-gray-900 transition-colors hover:text-purple-600">
+                            {product.product_name}
+                          </p>
                           <p className="text-sm text-gray-600">Số lượng: {product.quantity}</p>
                         </div>
-                      </div>
+                      </Link>
                       <p className="font-bold text-blue-600">{product.total_price.toLocaleString("vi-VN")} đ</p>
                     </div>
 

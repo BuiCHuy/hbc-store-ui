@@ -18,6 +18,7 @@ export function Home() {
   const [brands, setBrands] = useState([]);
   const [selectedBrandFilter, setSelectedBrandFilter] = useState("all");
   const [featuredSource, setFeaturedSource] = useState([]);
+  const [productFilterResetKey, setProductFilterResetKey] = useState(0);
   const [searchParams] = useSearchParams();
   const searchTerm = searchParams.get("q") || "";
 
@@ -112,18 +113,37 @@ export function Home() {
     [featuredSource]
   );
 
+  const resetLowerFilters = () => {
+    setSelectedSubcategoryId("all");
+    setSelectedAttributes({});
+    setProductFilterResetKey((prev) => prev + 1);
+  };
+
+  const resetAllFilters = () => {
+    setSelectedCategoryId("all");
+    setSelectedBrandFilter("all");
+    resetLowerFilters();
+  };
+
   return (
     <div className="relative flex min-h-screen flex-col bg-gray-50">
       <main className="flex-grow">
-        <HeroBanner categories={categories} onQuickCategory={setSelectedCategoryId} />
+        <HeroBanner
+          categories={categories}
+          onQuickCategory={(next) => {
+            setSelectedCategoryId(next);
+            setSelectedBrandFilter("all");
+            resetLowerFilters();
+          }}
+        />
         <TrustBadges />
 
         <CategoryShowcase
           categories={categories}
           onPickCategory={(next) => {
             setSelectedCategoryId(next);
-            setSelectedSubcategoryId("all");
-            setSelectedAttributes({});
+            setSelectedBrandFilter("all");
+            resetLowerFilters();
             document.getElementById("category-filter")?.scrollIntoView({ behavior: "smooth" });
           }}
         />
@@ -132,7 +152,9 @@ export function Home() {
           brands={brands}
           selectedBrandName={selectedBrandFilter}
           onPickBrand={(name) => {
+            setSelectedCategoryId("all");
             setSelectedBrandFilter(name || "all");
+            resetLowerFilters();
             document.getElementById("product-grid")?.scrollIntoView({ behavior: "smooth" });
           }}
         />
@@ -147,7 +169,11 @@ export function Home() {
 
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
                 {featuredProducts.map((item) => (
-                  <div key={item.id} className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                  <Link
+                    key={item.id}
+                    to={`/product/${item.id}`}
+                    className="block rounded-lg border border-slate-200 bg-white p-3 shadow-sm transition hover:-translate-y-0.5 hover:border-purple-200 hover:shadow-md"
+                  >
                     <div className="mb-3 aspect-[4/3] overflow-hidden rounded-md border border-slate-100 bg-slate-100">
                       <img
                         src={item.image || ""}
@@ -162,11 +188,11 @@ export function Home() {
                       <span className="text-sm font-bold text-purple-700">
                         {new Intl.NumberFormat("vi-VN").format(item.price || 0)} đ
                       </span>
-                      <Link to={`/product/${item.id}`} className="text-xs font-medium text-purple-700 hover:text-purple-800">
+                      <span className="text-xs font-medium text-purple-700">
                         Xem
-                      </Link>
+                      </span>
                     </div>
-                  </div>
+                  </Link>
                 ))}
               </div>
             </div>
@@ -178,8 +204,7 @@ export function Home() {
           selectedCategoryId={selectedCategoryId}
           onCategoryChange={(next) => {
             setSelectedCategoryId(next);
-            setSelectedSubcategoryId("all");
-            setSelectedAttributes({});
+            resetLowerFilters();
           }}
         />
 
@@ -250,6 +275,8 @@ export function Home() {
           attributeFacets={attributeFacets}
           selectedBrandFilter={selectedBrandFilter}
           onBrandFilterChange={setSelectedBrandFilter}
+          onResetFilters={resetAllFilters}
+          resetKey={productFilterResetKey}
           isLoading={isLoading}
           isLoadingMore={isLoadingMore}
           hasMore={hasMore}

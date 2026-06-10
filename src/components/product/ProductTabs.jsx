@@ -5,6 +5,7 @@ import { Textarea } from "../ui/textarea";
 import { toast } from "sonner";
 import { useAuth } from "../../contexts/AuthContext";
 import { LoginPromptModal } from "../LoginPromptModal";
+import { getErrorMessageVi } from "../../lib/api";
 import {
   createProductReview,
   getProductReviewEligibility,
@@ -138,7 +139,7 @@ export function ProductTabs({ product }) {
       await Promise.all([loadReviews(), loadMyReview()]);
     } catch (error) {
       toast.error("Không thể gửi đánh giá", {
-        description: error.message,
+        description: getErrorMessageVi(error, "Không thể gửi đánh giá lúc này."),
       });
     } finally {
       setIsSubmittingReview(false);
@@ -158,7 +159,7 @@ export function ProductTabs({ product }) {
       await loadReviews();
     } catch (error) {
       toast.error("Không thể gửi phản hồi", {
-        description: error.message,
+        description: getErrorMessageVi(error, "Không thể gửi phản hồi lúc này."),
       });
     } finally {
       setReplyingReviewId(null);

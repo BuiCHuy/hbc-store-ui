@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Search, Star } from "lucide-react";
 import { toast } from "sonner";
+import { getErrorMessageVi } from "../../lib/api";
 import { Input } from "../../components/ui/input";
 import { Textarea } from "../../components/ui/textarea";
 import {
@@ -51,7 +52,9 @@ export function AdminReviews() {
           setReplyDraft(initialDraft);
         }
       } catch (error) {
-        toast.error("Không thể tải đánh giá", { description: error.message });
+        toast.error("Không thể tải đánh giá", {
+          description: getErrorMessageVi(error, "Không thể tải danh sách đánh giá."),
+        });
       } finally {
         if (mounted) setIsLoading(false);
       }
@@ -107,7 +110,9 @@ export function AdminReviews() {
       setReviews((prev) => prev.map((r) => (r.id === id ? updated : r)));
       toast.success("Cập nhật trạng thái đánh giá thành công");
     } catch (error) {
-      toast.error("Không thể cập nhật trạng thái", { description: error.message });
+      toast.error("Không thể cập nhật trạng thái", {
+        description: getErrorMessageVi(error, "Không thể cập nhật trạng thái đánh giá."),
+      });
     }
   };
 
@@ -122,7 +127,9 @@ export function AdminReviews() {
       setReviews((prev) => prev.map((r) => (r.id === reviewId ? updated : r)));
       toast.success("Đã phản hồi đánh giá");
     } catch (error) {
-      toast.error("Không thể phản hồi", { description: error.message });
+      toast.error("Không thể phản hồi", {
+        description: getErrorMessageVi(error, "Không thể gửi phản hồi đánh giá."),
+      });
     }
   };
 
