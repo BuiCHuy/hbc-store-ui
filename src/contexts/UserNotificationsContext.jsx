@@ -4,7 +4,7 @@ import { useAuth } from "./AuthContext";
 import { getMyOrders, getMyRefundRequests } from "../services/adminApi";
 
 const UserNotificationsContext = createContext(undefined);
-const POLL_INTERVAL_MS = 20000;
+const POLL_INTERVAL_MS = 10000;
 const MAX_NOTIFICATIONS = 20;
 
 const ORDER_STATUS_LABELS = {
@@ -85,7 +85,6 @@ export function UserNotificationsProvider({ children }) {
   const [notifications, setNotifications] = useState([]);
   const knownOrderStatusesRef = useRef({});
   const knownRefundStatusesRef = useRef({});
-  const bootstrappedRef = useRef(false);
 
   useEffect(() => {
     if (!isAuthReady) return undefined;
@@ -93,7 +92,6 @@ export function UserNotificationsProvider({ children }) {
       setNotifications([]);
       knownOrderStatusesRef.current = {};
       knownRefundStatusesRef.current = {};
-      bootstrappedRef.current = false;
       return undefined;
     }
 
@@ -124,7 +122,7 @@ export function UserNotificationsProvider({ children }) {
           const key = String(order.id);
           nextOrderStatuses[key] = order.status;
           const previousStatus = knownOrderStatusesRef.current[key];
-          if (bootstrappedRef.current && previousStatus && previousStatus !== order.status) {
+          if (previousStatus && previousStatus !== order.status) {
             generatedNotifications.push(buildOrderNotification(order));
           }
         });
@@ -133,14 +131,10 @@ export function UserNotificationsProvider({ children }) {
           const key = String(refund.id);
           nextRefundStatuses[key] = refund.status;
           const previousStatus = knownRefundStatusesRef.current[key];
-          if (bootstrappedRef.current && previousStatus && previousStatus !== refund.status) {
+          if (previousStatus && previousStatus !== refund.status) {
             generatedNotifications.push(buildRefundNotification(refund));
           }
         });
-
-        if (!bootstrappedRef.current) {
-          bootstrappedRef.current = true;
-        }
 
         knownOrderStatusesRef.current = nextOrderStatuses;
         knownRefundStatusesRef.current = nextRefundStatuses;
