@@ -73,7 +73,7 @@ export function Header() {
                     notifications.map((item) => (
                       <Link
                         key={item.id}
-                        to="/admin/orders"
+                        to={item.link || "/admin/orders"}
                         onClick={() => setShowNotifications(false)}
                         className="block border-b border-gray-100 px-4 py-3 transition-colors hover:bg-gray-50"
                       >
