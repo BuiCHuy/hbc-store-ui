@@ -381,6 +381,14 @@ export function ShoppingCart() {
     setIsCheckoutModalOpen(true);
   };
 
+  const removeCheckedOutItemsFromCart = async (itemIds) => {
+    if (!Array.isArray(itemIds) || itemIds.length === 0) return;
+    await Promise.all(itemIds.map((itemId) => deleteCartItem(itemId)));
+    const latestItems = getCartItems();
+    setCartItems(latestItems);
+    setSelectedItems(latestItems.map((item) => item.id));
+  };
+
   const handleOrderConfirm = async () => {
     if (isSubmittingOrder) return;
     setIsSubmittingOrder(true);
@@ -392,7 +400,8 @@ export function ShoppingCart() {
         couponCode: checkoutData?.voucherCode || promoCode,
       });
       setCreatedOrder(order);
-      setPendingCheckoutItemIds(checkoutItemIds);
+      await removeCheckedOutItemsFromCart(checkoutItemIds);
+      setPendingCheckoutItemIds([]);
       setIsOrderConfirmationModalOpen(false);
 
       if (checkoutData?.paymentMethod === "BANK_TRANSFER") {
@@ -410,13 +419,6 @@ export function ShoppingCart() {
         return;
       }
 
-      if (checkoutItemIds.length > 0) {
-        await Promise.all(checkoutItemIds.map((itemId) => deleteCartItem(itemId)));
-      }
-      const latestItems = getCartItems();
-      setCartItems(latestItems);
-      setSelectedItems(latestItems.map((item) => item.id));
-      setPendingCheckoutItemIds([]);
       setIsOrderSuccessModalOpen(true);
     } catch (error) {
       toast.error("Không thể tạo đơn hàng", {
