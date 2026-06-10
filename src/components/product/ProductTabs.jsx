@@ -58,6 +58,7 @@ export function ProductTabs({ product }) {
 
   useEffect(() => {
     let mounted = true;
+
     const load = async () => {
       if (!product?.id) return;
       setIsLoadingReviews(true);
@@ -65,7 +66,9 @@ export function ProductTabs({ product }) {
         const [approvedReviews, mine, eligibility] = await Promise.all([
           getProductReviews(product.id),
           isLoggedIn ? getMyProductReview(product.id) : Promise.resolve(null),
-          isLoggedIn && !isAdmin ? getProductReviewEligibility(product.id) : Promise.resolve(false),
+          isLoggedIn && !isAdmin
+            ? getProductReviewEligibility(product.id)
+            : Promise.resolve(false),
         ]);
         if (!mounted) return;
         setReviews(approvedReviews);
@@ -80,6 +83,7 @@ export function ProductTabs({ product }) {
         if (mounted) setIsLoadingReviews(false);
       }
     };
+
     load();
     return () => {
       mounted = false;
@@ -91,6 +95,24 @@ export function ProductTabs({ product }) {
     const sum = reviews.reduce((acc, item) => acc + Number(item.rating || 0), 0);
     return Number((sum / reviews.length).toFixed(1));
   }, [reviews]);
+
+  const specificationItems = useMemo(() => {
+    const baseItems = [
+      ["Thương hiệu", product?.brand || "Chưa có"],
+      ["Xuất xứ", product?.brandCountry || "Chưa có"],
+      ["Danh mục", product?.category || "Chưa có"],
+      ["Tồn kho", `${product?.stockQuantity ?? 0} sản phẩm`],
+      ["Trạng thái", product?.status || "Chưa có"],
+      ...(product?.attributes || [])
+        .filter((attr) => attr?.name && attr?.value)
+        .map((attr) => [attr.name, attr.value]),
+    ];
+
+    return baseItems.filter(([label, value]) => {
+      if (label !== "Trạng thái") return true;
+      return String(value || "").trim().toLowerCase() !== "active";
+    });
+  }, [product]);
 
   const openEditReview = () => {
     if (!myReview) return;
@@ -115,7 +137,9 @@ export function ProductTabs({ product }) {
     }
 
     if (myReview && !isEditingReview) {
-      toast.info("Bạn đã viết đánh giá cho sản phẩm này rồi. Nếu chưa hiển thị vui lòng chờ admin duyệt");
+      toast.info(
+        "Bạn đã viết đánh giá cho sản phẩm này rồi. Nếu chưa hiển thị vui lòng chờ admin duyệt"
+      );
       return;
     }
 
@@ -131,9 +155,12 @@ export function ProductTabs({ product }) {
         rating: Number(reviewForm.rating),
         content,
       });
-      toast.success(isEditingReview ? "Đã gửi cập nhật đánh giá" : "Đã gửi đánh giá", {
-        description: "Đánh giá của bạn đang chờ admin duyệt.",
-      });
+      toast.success(
+        isEditingReview ? "Đã gửi cập nhật đánh giá" : "Đã gửi đánh giá",
+        {
+          description: "Đánh giá của bạn đang chờ admin duyệt.",
+        }
+      );
       setReviewForm({ rating: "5", content: "" });
       setIsEditingReview(false);
       await Promise.all([loadReviews(), loadMyReview()]);
@@ -152,6 +179,7 @@ export function ProductTabs({ product }) {
       toast.error("Vui lòng nhập phản hồi");
       return;
     }
+
     setReplyingReviewId(reviewId);
     try {
       await replyProductReview(reviewId, reply);
@@ -193,19 +221,12 @@ export function ProductTabs({ product }) {
       <div className="p-5">
         {activeTab === "specifications" && (
           <dl className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {[
-              ["Thương hiệu", product?.brand || "Chưa có"],
-              ["Xuất xứ", product?.brandCountry || "Chưa có"],
-              ["Danh mục", product?.category || "Chưa có"],
-              ["Tồn kho", `${product?.stockQuantity ?? 0} sản phẩm`],
-              ["Trạng thái", product?.status || "Chưa có"],
-              ...(product?.attributes || [])
-                .filter((attr) => attr?.name && attr?.value)
-                .map((attr) => [attr.name, attr.value]),
-            ].map(([label, value]) => (
+            {specificationItems.map(([label, value]) => (
               <div key={`${label}-${value}`}>
                 <dt className="mb-1 text-xs font-semibold text-gray-600">{label}</dt>
-                <dd className="text-sm font-medium text-gray-900">{value}</dd>
+                <dd className="whitespace-normal break-words text-sm font-medium leading-6 text-gray-900">
+                  {value}
+                </dd>
               </div>
             ))}
           </dl>
@@ -221,61 +242,65 @@ export function ProductTabs({ product }) {
             </div>
 
             {isLoggedIn && !isAdmin && canReview ? (
-            <div className="rounded-lg border border-gray-200 p-4">
-              <p className="mb-2 text-sm font-semibold text-gray-900">Viết đánh giá</p>
-              {myReview && !isEditingReview && (
-                <div className="mb-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
-                  Bạn đã viết đánh giá cho sản phẩm này rồi. Nếu chưa hiển thị vui lòng chờ admin duyệt
-                </div>
-              )}
-              <div className="mb-3">
-                <label className="mb-1 block text-xs text-gray-600">Số sao</label>
-                <select
-                  value={reviewForm.rating}
-                  onChange={(e) => setReviewForm((prev) => ({ ...prev, rating: e.target.value }))}
-                  className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-sm text-gray-900 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
-                  disabled={Boolean(myReview) && !isEditingReview}
-                >
-                  <option value="5">5 sao</option>
-                  <option value="4">4 sao</option>
-                  <option value="3">3 sao</option>
-                  <option value="2">2 sao</option>
-                  <option value="1">1 sao</option>
-                </select>
-              </div>
-              <div className="mb-3">
-                <label className="mb-1 block text-xs text-gray-600">Nội dung</label>
-                <Textarea
-                  value={reviewForm.content}
-                  onChange={(e) => setReviewForm((prev) => ({ ...prev, content: e.target.value }))}
-                  placeholder="Chia sẻ trải nghiệm thực tế về sản phẩm..."
-                  className="min-h-[90px] text-sm"
-                  disabled={Boolean(myReview) && !isEditingReview}
-                />
-              </div>
-              <div className="flex gap-2">
-                <Button onClick={handleSubmitReview} disabled={isSubmittingReview} className="h-9 text-xs">
-                  {isSubmittingReview ? "Đang gửi..." : isEditingReview ? "Gửi cập nhật" : "Gửi đánh giá"}
-                </Button>
+              <div className="rounded-lg border border-gray-200 p-4">
+                <p className="mb-2 text-sm font-semibold text-gray-900">Viết đánh giá</p>
                 {myReview && !isEditingReview && (
-                  <Button variant="outline" onClick={openEditReview} className="h-9 text-xs">
-                    Sửa đánh giá của bạn
-                  </Button>
+                  <div className="mb-3 rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700">
+                    Bạn đã viết đánh giá cho sản phẩm này rồi. Nếu chưa hiển thị vui lòng chờ admin duyệt
+                  </div>
                 )}
-                {isEditingReview && (
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setIsEditingReview(false);
-                      setReviewForm({ rating: "5", content: "" });
-                    }}
-                    className="h-9 text-xs"
+                <div className="mb-3">
+                  <label className="mb-1 block text-xs text-gray-600">Số sao</label>
+                  <select
+                    value={reviewForm.rating}
+                    onChange={(e) => setReviewForm((prev) => ({ ...prev, rating: e.target.value }))}
+                    className="h-10 w-full rounded-md border border-gray-300 bg-white px-3 text-sm text-gray-900 outline-none focus:border-purple-500 focus:ring-2 focus:ring-purple-200"
+                    disabled={Boolean(myReview) && !isEditingReview}
                   >
-                    Hủy
+                    <option value="5">5 sao</option>
+                    <option value="4">4 sao</option>
+                    <option value="3">3 sao</option>
+                    <option value="2">2 sao</option>
+                    <option value="1">1 sao</option>
+                  </select>
+                </div>
+                <div className="mb-3">
+                  <label className="mb-1 block text-xs text-gray-600">Nội dung</label>
+                  <Textarea
+                    value={reviewForm.content}
+                    onChange={(e) => setReviewForm((prev) => ({ ...prev, content: e.target.value }))}
+                    placeholder="Chia sẻ trải nghiệm thực tế về sản phẩm..."
+                    className="min-h-[90px] text-sm"
+                    disabled={Boolean(myReview) && !isEditingReview}
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={handleSubmitReview} disabled={isSubmittingReview} className="h-9 text-xs">
+                    {isSubmittingReview
+                      ? "Đang gửi..."
+                      : isEditingReview
+                        ? "Gửi cập nhật"
+                        : "Gửi đánh giá"}
                   </Button>
-                )}
+                  {myReview && !isEditingReview && (
+                    <Button variant="outline" onClick={openEditReview} className="h-9 text-xs">
+                      Sửa đánh giá của bạn
+                    </Button>
+                  )}
+                  {isEditingReview && (
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setIsEditingReview(false);
+                        setReviewForm({ rating: "5", content: "" });
+                      }}
+                      className="h-9 text-xs"
+                    >
+                      Hủy
+                    </Button>
+                  )}
+                </div>
               </div>
-            </div>
             ) : null}
 
             {isLoadingReviews ? (
@@ -302,12 +327,14 @@ export function ProductTabs({ product }) {
                     </div>
                   </div>
                   <p className="text-sm text-gray-700">{review.comment}</p>
+
                   {review.adminReply && (
                     <div className="mt-2 rounded-md border border-blue-200 bg-blue-50 p-2">
                       <p className="text-xs font-semibold text-blue-800">Phản hồi từ cửa hàng</p>
                       <p className="text-sm text-blue-900">{review.adminReply}</p>
                     </div>
                   )}
+
                   {isAdmin && (
                     <div className="mt-2 space-y-2 rounded-md border border-gray-200 bg-gray-50 p-2">
                       <p className="text-xs font-semibold text-gray-700">Phản hồi với vai trò admin</p>

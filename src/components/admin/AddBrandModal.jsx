@@ -23,6 +23,17 @@ import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
 import { Building2, Globe, FileText, Image, Save, X } from "lucide-react";
 import { uploadProductImages } from "../../hooks/useCatalog";
+import { ImagePreview } from "./ImagePreview";
+
+function isValidUrl(value) {
+  if (!value) return true;
+  try {
+    new URL(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export function AddBrandModal({
   isOpen,
@@ -63,15 +74,33 @@ export function AddBrandModal({
 
   const handleSubmit = (event) => {
     event.preventDefault();
-    if (!formData.name.trim()) {
-      setErrors({ name: "Vui lòng nhập tên hãng" });
-      return;
-    }
+    const nextErrors = {};
+    const trimmedName = formData.name.trim();
+    const trimmedLogoUrl = formData.logoUrl.trim();
+    const trimmedCountry = formData.country.trim();
+    const trimmedDescription = formData.description.trim();
+
+    if (!trimmedName) nextErrors.name = "Vui lòng nhập tên hãng";
+    else if (trimmedName.length < 2) nextErrors.name = "Tên hãng phải có ít nhất 2 ký tự";
+    else if (trimmedName.length > 120) nextErrors.name = "Tên hãng không được vượt quá 120 ký tự";
+
+    if (trimmedLogoUrl && !isValidUrl(trimmedLogoUrl)) nextErrors.logoUrl = "URL logo không hợp lệ";
+    if (trimmedCountry.length > 80) nextErrors.country = "Tên quốc gia không được vượt quá 80 ký tự";
+    if (trimmedDescription.length > 500) nextErrors.description = "Mô tả không được vượt quá 500 ký tự";
+
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
     setShowConfirmDialog(true);
   };
 
   const handleConfirmSave = () => {
-    onSave(formData);
+    onSave({
+      ...formData,
+      name: formData.name.trim(),
+      logoUrl: formData.logoUrl.trim(),
+      country: formData.country.trim(),
+      description: formData.description.trim(),
+    });
     setShowConfirmDialog(false);
     handleClose();
   };
@@ -102,7 +131,9 @@ export function AddBrandModal({
             <Building2 className="h-5 w-5 text-blue-600" />
             {title}
           </DialogTitle>
-          <DialogDescription className="text-sm text-gray-600">Điền thông tin hãng sản xuất.</DialogDescription>
+          <DialogDescription className="text-sm text-gray-600">
+            Điền thông tin hãng sản xuất.
+          </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit}>
@@ -140,13 +171,15 @@ export function AddBrandModal({
                   disabled={isUploadingLogo}
                   className="h-10 cursor-pointer"
                 />
-                {isUploadingLogo && <span className="whitespace-nowrap text-xs text-gray-500">Đang tải...</span>}
+                {isUploadingLogo && (
+                  <span className="whitespace-nowrap text-xs text-gray-500">Đang tải...</span>
+                )}
               </div>
-              {formData.logoUrl && (
-                <div className="flex h-14 w-32 items-center justify-center rounded-md border border-gray-200 bg-white p-2">
-                  <img src={formData.logoUrl} alt="Xem trước logo hãng" className="max-h-10 max-w-full object-contain" />
-                </div>
-              )}
+              <ImagePreview
+                src={formData.logoUrl}
+                alt="Xem trước logo hãng"
+                className="flex h-14 w-32 items-center justify-center bg-white p-2"
+              />
               {errors.logoUrl && <p className="text-xs text-red-600">{errors.logoUrl}</p>}
             </div>
 
@@ -161,6 +194,7 @@ export function AddBrandModal({
                   placeholder="Ví dụ: Nhật Bản"
                 />
               </div>
+              {errors.country && <p className="text-xs text-red-600">{errors.country}</p>}
             </div>
 
             <div className="space-y-2">
@@ -175,6 +209,7 @@ export function AddBrandModal({
                   placeholder="Mô tả ngắn về hãng..."
                 />
               </div>
+              {errors.description && <p className="text-xs text-red-600">{errors.description}</p>}
             </div>
           </div>
 
@@ -200,8 +235,13 @@ export function AddBrandModal({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="border-gray-300 text-gray-700 hover:bg-gray-100">Hủy</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmSave} className="bg-blue-600 text-white hover:bg-blue-700">
+            <AlertDialogCancel className="border-gray-300 text-gray-700 hover:bg-gray-100">
+              Hủy
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmSave}
+              className="bg-blue-600 text-white hover:bg-blue-700"
+            >
               Xác nhận
             </AlertDialogAction>
           </AlertDialogFooter>

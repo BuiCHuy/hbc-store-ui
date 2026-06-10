@@ -22,6 +22,7 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
+import { getTodayDateOnly } from "../../lib/dateOnly";
 
 const emptyForm = {
   name: "",
@@ -35,6 +36,10 @@ const emptyForm = {
   target_type: "PRODUCT",
   target_id: "",
 };
+
+function getTodayDate() {
+  return getTodayDateOnly();
+}
 
 export function PromotionModal({
   isOpen,
@@ -91,18 +96,45 @@ export function PromotionModal({
 
   const validate = () => {
     const nextErrors = {};
-    if (!formData.name.trim()) nextErrors.name = "Vui lòng nhập tên chương trình";
+    const trimmedName = formData.name.trim();
+    const trimmedDescription = formData.description.trim();
+    const discountValue = Number(formData.discount_value);
+    const priority = Number(formData.priority || 0);
+    const today = getTodayDate();
+
+    if (!trimmedName) nextErrors.name = "Vui lòng nhập tên chương trình";
+    else if (trimmedName.length < 2) nextErrors.name = "Tên chương trình phải có ít nhất 2 ký tự";
+    else if (trimmedName.length > 180) nextErrors.name = "Tên chương trình không được vượt quá 180 ký tự";
+
     if (!formData.discount_value) nextErrors.discount_value = "Vui lòng nhập giá trị giảm";
-    if (Number(formData.discount_value) <= 0) nextErrors.discount_value = "Giá trị giảm phải lớn hơn 0";
+    if (Number.isNaN(discountValue) || discountValue <= 0) nextErrors.discount_value = "Giá trị giảm phải lớn hơn 0";
     if (formData.discount_type === "PERCENTAGE" && Number(formData.discount_value) > 100) {
       nextErrors.discount_value = "Phần trăm giảm không được vượt quá 100%";
     }
+    if (
+      (formData.discount_type === "FIXED_AMOUNT" || formData.discount_type === "FIXED_PRICE") &&
+      !Number.isInteger(discountValue)
+    ) {
+      nextErrors.discount_value = "Giá trị giảm phải là số nguyên hợp lệ";
+    }
     if (!formData.start_date) nextErrors.start_date = "Vui lòng chọn ngày bắt đầu";
     if (!formData.end_date) nextErrors.end_date = "Vui lòng chọn ngày kết thúc";
+    if (formData.start_date && formData.start_date < today) {
+      nextErrors.start_date = "Ngày bắt đầu không được nhỏ hơn ngày hiện tại";
+    }
+    if (formData.end_date && formData.end_date < today) {
+      nextErrors.end_date = "Ngày kết thúc không được nhỏ hơn ngày hiện tại";
+    }
     if (formData.start_date && formData.end_date && formData.start_date > formData.end_date) {
       nextErrors.end_date = "Ngày kết thúc phải sau ngày bắt đầu";
     }
     if (!formData.target_id) nextErrors.target_id = "Vui lòng chọn phạm vi áp dụng";
+    if (Number.isNaN(priority) || priority < 0 || !Number.isInteger(priority)) {
+      nextErrors.priority = "Độ ưu tiên phải là số nguyên không âm";
+    }
+    if (trimmedDescription.length > 1000) {
+      nextErrors.description = "Mô tả không được vượt quá 1000 ký tự";
+    }
 
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
@@ -185,14 +217,28 @@ export function PromotionModal({
             <Field id="start_date" label="Ngày bắt đầu" error={errors.start_date}>
               <div className="relative">
                 <Calendar className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-                <Input id="start_date" type="date" value={formData.start_date} onChange={(event) => updateField("start_date", event.target.value)} className="h-11 pl-11" />
+                <Input
+                  id="start_date"
+                  type="date"
+                  min={getTodayDate()}
+                  value={formData.start_date}
+                  onChange={(event) => updateField("start_date", event.target.value)}
+                  className="h-11 pl-11"
+                />
               </div>
             </Field>
 
             <Field id="end_date" label="Ngày kết thúc" error={errors.end_date}>
               <div className="relative">
                 <Calendar className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
-                <Input id="end_date" type="date" value={formData.end_date} onChange={(event) => updateField("end_date", event.target.value)} className="h-11 pl-11" />
+                <Input
+                  id="end_date"
+                  type="date"
+                  min={formData.start_date || getTodayDate()}
+                  value={formData.end_date}
+                  onChange={(event) => updateField("end_date", event.target.value)}
+                  className="h-11 pl-11"
+                />
               </div>
             </Field>
 
@@ -216,13 +262,14 @@ export function PromotionModal({
               </div>
             </Field>
 
-            <Field id="priority" label="Độ ưu tiên">
+            <Field id="priority" label="Độ ưu tiên" error={errors.priority}>
               <Input id="priority" type="number" min="0" value={formData.priority} onChange={(event) => updateField("priority", event.target.value)} className="h-11" />
             </Field>
 
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="description">Mô tả</Label>
               <Textarea id="description" value={formData.description} onChange={(event) => updateField("description", event.target.value)} placeholder="Mô tả ngắn về chương trình khuyến mại" className="min-h-[90px] resize-none" />
+              {errors.description ? <p className="text-xs text-red-600">{errors.description}</p> : null}
             </div>
           </div>
 

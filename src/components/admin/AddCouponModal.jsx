@@ -32,6 +32,7 @@ import {
   Sparkles,
   TrendingDown,
 } from "lucide-react";
+import { getTodayDateOnly, normalizeDateOnlyInput } from "../../lib/dateOnly";
 
 export function AddCouponModal({
   isOpen,
@@ -75,8 +76,8 @@ export function AddCouponModal({
         minOrderValue: String(initialData.min_order_value ?? ""),
         maxDiscount: initialData.max_discount_amount == null ? "" : String(initialData.max_discount_amount),
         usageLimit: initialData.usage_limit == null ? "" : String(initialData.usage_limit),
-        startDate: initialData.start_date ? new Date(initialData.start_date).toISOString().slice(0, 10) : "",
-        endDate: initialData.end_date ? new Date(initialData.end_date).toISOString().slice(0, 10) : "",
+        startDate: normalizeDateOnlyInput(initialData.start_date),
+        endDate: normalizeDateOnlyInput(initialData.end_date),
       });
     }
     setErrors({});
@@ -85,6 +86,7 @@ export function AddCouponModal({
 
   const validateForm = () => {
     const newErrors = {};
+    const today = getTodayDate();
 
     if (!formData.code.trim()) {
       newErrors.code = "Mã giảm giá là bắt buộc";
@@ -130,12 +132,16 @@ export function AddCouponModal({
       newErrors.endDate = "Ngày hết hạn là bắt buộc";
     }
 
-    if (formData.startDate && formData.endDate) {
-      const start = new Date(formData.startDate);
-      const end = new Date(formData.endDate);
-      if (start >= end) {
-        newErrors.endDate = "Ngày hết hạn phải sau ngày bắt đầu";
-      }
+    if (formData.startDate && formData.startDate < today) {
+      newErrors.startDate = "Ngày bắt đầu không được nhỏ hơn ngày hiện tại";
+    }
+
+    if (formData.endDate && formData.endDate < today) {
+      newErrors.endDate = "Ngày hết hạn không được nhỏ hơn ngày hiện tại";
+    }
+
+    if (formData.startDate && formData.endDate && formData.startDate > formData.endDate) {
+      newErrors.endDate = "Ngày hết hạn không được nhỏ hơn ngày bắt đầu";
     }
 
     setErrors(newErrors);
@@ -179,7 +185,7 @@ export function AddCouponModal({
     setFormData({ ...formData, [field]: rawValue });
   };
 
-  const getTodayDate = () => new Date().toISOString().split("T")[0];
+  const getTodayDate = () => getTodayDateOnly();
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -372,6 +378,7 @@ export function AddCouponModal({
                     onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
                     className="h-11"
                   />
+                  {errors.startDate && <p className="text-sm text-red-600">{errors.startDate}</p>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="endDate" className="text-sm font-semibold text-slate-700">

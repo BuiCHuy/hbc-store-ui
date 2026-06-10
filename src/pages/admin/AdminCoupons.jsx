@@ -9,12 +9,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { CouponsTable } from "../../components/admin/CouponsTable";
 import { AddCouponModal } from "../../components/admin/AddCouponModal";
 import { getErrorMessageVi } from "../../lib/api";
+import { getEndOfDateOnly, getStartOfDateOnly, parseDateOnly } from "../../lib/dateOnly";
 import { createCoupon, deleteCoupon, getCoupons, updateCoupon } from "../../services/adminApi";
 
 function getCouponDisplayStatus(coupon) {
   const now = Date.now();
-  const start = coupon?.start_date ? new Date(coupon.start_date).getTime() : null;
-  const end = coupon?.end_date ? new Date(coupon.end_date).getTime() : null;
+  const start = getStartOfDateOnly(coupon?.start_date);
+  const end = getEndOfDateOnly(coupon?.end_date);
   const baseStatus = String(coupon?.status || "").toLowerCase();
 
   if (Number.isFinite(end) && end < now) return "expired";
@@ -120,7 +121,9 @@ export function AdminCoupons() {
     sevenDaysLater.setDate(now.getDate() + 7);
     const expiringSoon = coupons.filter((coupon) => {
       if (!coupon.end_date) return false;
-      const endDate = new Date(coupon.end_date);
+      const endDate = parseDateOnly(coupon.end_date);
+      if (!endDate) return false;
+      endDate.setHours(23, 59, 59, 999);
       return endDate >= now && endDate <= sevenDaysLater;
     }).length;
     return { total, active, usage, expiringSoon };

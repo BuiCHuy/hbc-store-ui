@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Copy, Edit, MoreVertical, Search, Trash2 } from "lucide-react";
 import { Button } from "../ui/button";
+import { formatDateOnlyVi, getEndOfDateOnly, getStartOfDateOnly } from "../../lib/dateOnly";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,8 +31,8 @@ const statusLabels = {
 
 function getCouponDisplayStatus(coupon) {
   const now = Date.now();
-  const start = coupon?.start_date ? new Date(coupon.start_date).getTime() : null;
-  const end = coupon?.end_date ? new Date(coupon.end_date).getTime() : null;
+  const start = getStartOfDateOnly(coupon?.start_date);
+  const end = getEndOfDateOnly(coupon?.end_date);
   const baseStatus = String(coupon?.status || "").toLowerCase();
 
   if (Number.isFinite(end) && end < now) return "expired";
@@ -177,8 +178,8 @@ export function CouponsTable({ coupons = [], isLoading = false, onDeleteCoupon, 
                       {coupon.max_discount_amount ? formatPrice(coupon.max_discount_amount) : "—"}
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-700">
-                      {new Date(coupon.start_date).toLocaleDateString("vi-VN")} đến{" "}
-                      {new Date(coupon.end_date).toLocaleDateString("vi-VN")}
+                      {formatDateOnlyVi(coupon.start_date)} đến{" "}
+                      {formatDateOnlyVi(coupon.end_date)}
                     </td>
                     <td className="whitespace-nowrap px-6 py-4 text-sm">
                       <div className="font-semibold text-gray-900">

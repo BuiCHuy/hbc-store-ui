@@ -15,6 +15,7 @@ import { Input } from "../../components/ui/input";
 import { StatCard } from "../../components/admin/StatCard";
 import { PromotionModal } from "../../components/admin/PromotionModal";
 import { getErrorMessageVi } from "../../lib/api";
+import { formatDateOnlyVi, getEndOfDateOnly, getStartOfDateOnly } from "../../lib/dateOnly";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -56,8 +57,8 @@ function getPromotionDisplayStatus(promotion) {
   if (rawStatus !== "ACTIVE") return rawStatus || "INACTIVE";
 
   const now = Date.now();
-  const start = promotion?.start_date ? new Date(promotion.start_date).getTime() : null;
-  const end = promotion?.end_date ? new Date(promotion.end_date).getTime() : null;
+  const start = getStartOfDateOnly(promotion?.start_date);
+  const end = getEndOfDateOnly(promotion?.end_date);
 
   if (Number.isFinite(end) && end < now) return "EXPIRED";
   if (Number.isFinite(start) && start > now) return "INACTIVE";
@@ -380,7 +381,7 @@ function formatDiscount(promotion) {
 }
 
 function formatDate(date) {
-  return new Date(date).toLocaleDateString("vi-VN");
+  return formatDateOnlyVi(date);
 }
 
 function getTargetName(promotion, catalog) {

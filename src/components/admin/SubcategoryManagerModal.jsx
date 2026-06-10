@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
+import { ImagePreview } from "./ImagePreview";
 
 export function SubcategoryManagerModal({ isOpen, onClose, category }) {
   const [items, setItems] = useState([]);
@@ -191,6 +192,11 @@ export function SubcategoryManagerModal({ isOpen, onClose, category }) {
                     </span>
                   )}
                 </div>
+                <ImagePreview
+                  src={form.iconUrl}
+                  alt="Xem trước ảnh danh mục con"
+                  className="h-32 w-full max-w-xs p-2"
+                />
               </div>
               <Button className="w-full bg-blue-600 text-white hover:bg-blue-700" onClick={handleSave} disabled={isSaving}>
                 {editing ? <Save className="mr-2 h-4 w-4" /> : <Plus className="mr-2 h-4 w-4" />}

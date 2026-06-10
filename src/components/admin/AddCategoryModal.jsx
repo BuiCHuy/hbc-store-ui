@@ -23,6 +23,17 @@ import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
 import { FolderOpen, FileText, Loader2, Save, Upload, X } from "lucide-react";
 import { uploadProductImages } from "../../hooks/useCatalog";
+import { ImagePreview } from "./ImagePreview";
+
+function isValidUrl(value) {
+  if (!value) return true;
+  try {
+    new URL(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export function AddCategoryModal({
   isOpen,
@@ -57,10 +68,20 @@ export function AddCategoryModal({
 
   const handleSubmit = (event) => {
     event.preventDefault();
-    if (!formData.name.trim()) {
-      setErrors({ name: "Vui lòng nhập tên danh mục" });
-      return;
-    }
+    const nextErrors = {};
+    const trimmedName = formData.name.trim();
+    const trimmedDescription = formData.description.trim();
+    const trimmedIconUrl = formData.iconUrl.trim();
+
+    if (!trimmedName) nextErrors.name = "Vui lòng nhập tên danh mục";
+    else if (trimmedName.length < 2) nextErrors.name = "Tên danh mục phải có ít nhất 2 ký tự";
+    else if (trimmedName.length > 120) nextErrors.name = "Tên danh mục không được vượt quá 120 ký tự";
+
+    if (trimmedDescription.length > 500) nextErrors.description = "Mô tả không được vượt quá 500 ký tự";
+    if (trimmedIconUrl && !isValidUrl(trimmedIconUrl)) nextErrors.iconUrl = "URL ảnh danh mục không hợp lệ";
+
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) return;
     setShowConfirmDialog(true);
   };
 
@@ -84,7 +105,12 @@ export function AddCategoryModal({
   };
 
   const handleConfirmSave = () => {
-    onSave(formData);
+    onSave({
+      ...formData,
+      name: formData.name.trim(),
+      description: formData.description.trim(),
+      iconUrl: formData.iconUrl.trim(),
+    });
     setShowConfirmDialog(false);
     handleClose();
   };
@@ -132,6 +158,7 @@ export function AddCategoryModal({
                   placeholder="Mô tả ngắn cho danh mục..."
                 />
               </div>
+              {errors.description && <p className="text-xs text-red-600">{errors.description}</p>}
             </div>
 
             <div className="space-y-2">
@@ -162,6 +189,11 @@ export function AddCategoryModal({
                   </span>
                 )}
               </div>
+              <ImagePreview
+                src={formData.iconUrl}
+                alt="Xem trước ảnh danh mục"
+                className="h-32 w-full max-w-xs p-2"
+              />
               {errors.iconUrl && <p className="text-xs text-red-600">{errors.iconUrl}</p>}
             </div>
           </div>

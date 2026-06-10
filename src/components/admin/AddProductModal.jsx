@@ -38,6 +38,17 @@ import {
   getSubcategories,
   uploadProductImages,
 } from "../../hooks/useCatalog";
+import { ImagePreview } from "./ImagePreview";
+
+function isValidUrl(value) {
+  if (!value) return true;
+  try {
+    new URL(value);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 function AddProductModal({
   isOpen,
@@ -170,15 +181,37 @@ function AddProductModal({
 
   const validate = () => {
     const next = {};
-    if (!formData.name.trim()) next.name = "Vui lòng nhập tên sản phẩm";
-    if (!formData.price || Number(formData.price) <= 0) {
+    const trimmedName = formData.name.trim();
+    const trimmedImageUrl = formData.imageUrl.trim();
+    const trimmedDescription = formData.description.trim();
+    const price = Number(formData.price);
+    const stock = Number(formData.stock);
+    const normalizedGallery = formData.galleryUrls.map((url) => url.trim()).filter(Boolean);
+
+    if (!trimmedName) next.name = "Vui lòng nhập tên sản phẩm";
+    else if (trimmedName.length < 2) next.name = "Tên sản phẩm phải có ít nhất 2 ký tự";
+    else if (trimmedName.length > 180) next.name = "Tên sản phẩm không được vượt quá 180 ký tự";
+
+    if (!formData.price || Number.isNaN(price) || price <= 0) {
       next.price = "Giá bán phải lớn hơn 0";
     }
-    if (formData.stock === "" || Number(formData.stock) < 0) {
+    if (formData.stock === "" || Number.isNaN(stock) || stock < 0 || !Number.isInteger(stock)) {
       next.stock = "Số lượng tồn kho không hợp lệ";
     }
     if (!formData.categoryId) next.categoryId = "Vui lòng chọn danh mục";
     if (!formData.brandId) next.brandId = "Vui lòng chọn hãng";
+    if (trimmedImageUrl && !isValidUrl(trimmedImageUrl)) next.imageUrl = "URL ảnh đại diện không hợp lệ";
+    if (normalizedGallery.some((url) => !isValidUrl(url))) next.galleryUrls = "Có URL ảnh bổ sung không hợp lệ";
+    if (trimmedDescription.length > 2000) next.description = "Mô tả không được vượt quá 2000 ký tự";
+    if (
+      formData.attributes.some((item) => {
+        const name = String(item?.name || "").trim();
+        const value = String(item?.value || "").trim();
+        return (name && !value) || (!name && value);
+      })
+    ) {
+      next.attributes = "Thuộc tính riêng phải nhập đủ cả tên và giá trị";
+    }
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -503,6 +536,11 @@ function AddProductModal({
                     </span>
                   )}
                 </div>
+                <ImagePreview
+                  src={formData.imageUrl}
+                  alt="Xem trước ảnh đại diện"
+                  className="h-44 w-full max-w-sm p-2"
+                />
                 {errors.imageUrl && <p className="text-xs text-red-600">{errors.imageUrl}</p>}
               </div>
 
@@ -547,6 +585,11 @@ function AddProductModal({
                           </span>
                         )}
                       </div>
+                      <ImagePreview
+                        src={url}
+                        alt={`Xem trước ảnh chi tiết ${index + 1}`}
+                        className="mt-3 h-36 w-full max-w-sm p-2"
+                      />
                     </div>
                   ))}
                 </div>
@@ -608,6 +651,9 @@ function AddProductModal({
                     </div>
                   ))}
                 </div>
+                {errors.attributes && (
+                  <p className="text-xs text-red-600">{errors.attributes}</p>
+                )}
               </div>
 
               <div className="space-y-2 md:col-span-2">
@@ -619,6 +665,9 @@ function AddProductModal({
                   className="resize-y"
                   placeholder="Mô tả sản phẩm..."
                 />
+                {errors.description && (
+                  <p className="text-xs text-red-600">{errors.description}</p>
+                )}
               </div>
             </div>
           </div>
