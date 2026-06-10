@@ -270,6 +270,16 @@ export async function markAllAdminNotificationsAsRead() {
   });
 }
 
+export async function getMyNotifications() {
+  return apiGet("/notifications");
+}
+
+export async function markAllMyNotificationsAsRead() {
+  return apiRequest("/notifications/read-all", {
+    method: "PATCH",
+  });
+}
+
 export function normalizeReviewSettings(settings) {
   return {
     reviewApprovalEnabled: Boolean(settings.reviewApprovalEnabled),
