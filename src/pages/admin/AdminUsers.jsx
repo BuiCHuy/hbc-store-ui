@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Download, Mail, Phone, Search, Shield, User } from "lucide-react";
+import { Mail, Phone, Search, Shield, User } from "lucide-react";
 import { toast } from "sonner";
 import { getErrorMessageVi } from "../../lib/api";
 import { Button } from "../../components/ui/button";
@@ -159,12 +159,6 @@ export function AdminUsers() {
         <div>
           <h1 className="text-3xl font-bold text-gray-900">Người dùng</h1>
           <p className="mt-1 text-gray-600">Quản lý tài khoản và phân quyền</p>
-        </div>
-        <div className="flex gap-3">
-          <Button variant="outline" className="h-11 px-6">
-            <Download className="mr-2 h-5 w-5" />
-            Xuất dữ liệu
-          </Button>
         </div>
       </div>
 
